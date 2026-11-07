@@ -53,9 +53,9 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 
 | Feature | Plan | Status | Notes |
 |---|---|---|---|
-| Game DB schema and script layer | 2 | Planned | One hero and one world per install, with a save id so more can come later |
-| Dice as a script | 2 | Planned | Player-readable, and the first quests teach it |
-| Fight log in the DB | 2 | Planned | Every fight step is logged by a script |
+| Game DB schema and script layer | 2 | Done | One hero and one world per install, with a save id so more can come later. Reached only through `node game/cli.js`. |
+| Dice as a script | 2 | Done | `game/dice.js`, player-readable, `Math.random`. The quest that teaches it comes with the quest engine. |
+| Fight log in the DB | 2 | Done | Every fight step is logged by a script, with ordered steps and linked dice rolls |
 | Fixed quest checks | 3 | Planned | Checks live in the repo. The Master only reskins the story. |
 | Step 1 runner (run the file, compare output) | 3 | Planned | Plain script, no AI |
 | Step 2 judging (read the code for cheating) | 3 | Planned | The only judging that costs tokens |
@@ -68,7 +68,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Choice-prompt play UI | 4 | Planned | Claude specific. Prompts allow 2 to 4 options, so big exit lists need paging. |
 | D&D combat | 5 | Planned | NPC warnings first, fights can sit inside quests |
 | JS moves in combat | 5 | Planned | Fancy moves trigger a hard JS problem. The Master generates it. |
-| Dice tamper detection | 5 | Planned | Changing the dice code resets you to level 1 in the same world |
+| Dice tamper detection | 2 | Done | A stored fingerprint of the dice file is checked before every command. A change resets you to level 1 in the same world and keeps your history. |
 | Stamina bar from the real 5hr limit | 6 | Planned | Whether a project-scoped bar can read that number is a research item |
 | Tiredness penalties | 6 | Planned | Noticeable after 60% of the window is used |
 | Hidden ending stats page | 7 | Planned | Hours, defeated enemies, subjects learned, tasks solved, honor over time |
@@ -83,10 +83,22 @@ Each plan has an epic issue on the board: [Plan 2](https://github.com/yamnyk/_JS
 You need Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on).
 
 ```bash
-bash setup.sh        # checks Node and node:sqlite
+bash setup.sh        # checks Node and node:sqlite, creates the game DB in data/
 node --test          # runs the test suite
 node dev/cli.js status
 ```
+
+The game scripts the Master will use already work. Every answer is one line of JSON:
+
+```bash
+node game/cli.js hero new Bilbo hobbit rogue
+node game/cli.js roll 2d6 --context "goblin attack"
+node game/cli.js honor add 10 help "helped the baker"
+node game/cli.js fight start "shopkeeper warned twice"
+node game/cli.js integrity check
+```
+
+Don't edit `game/dice.js`. The game fingerprints it, and a changed or missing dice file resets your hero to level 1. (Developers who change it on purpose re-seal it with `node game/seal.js`.)
 
 `node dev/cli.js board-config yamnyk 3` points the dev tooling at the GitHub board. The dev notes DB lives in `.dev/` and is not committed.
 
@@ -97,6 +109,8 @@ node dev/cli.js status
 | `docs/superpowers/specs/` | The design spec |
 | `docs/superpowers/plans/` | Implementation plans, one per subsystem |
 | `docs/process/` | Paste-ready plan-mode prompts for each plan |
+| `game/` | The game's data layer: DB, dice, honor, fights, tamper check, and the script CLI |
+| `data/` | The local game DB (gitignored, created by `setup.sh`) |
 | `dev/` | Dev tooling: notes DB, CLI, board reader, session start hook |
 | `dev/github/` | Script that seeds labels, the board, and issues |
 | `tests/` | `node:test` suites |
@@ -108,7 +122,7 @@ node dev/cli.js status
 The work is split into seven plans, each producing something testable on its own:
 
 1. Foundation and tracking (done)
-2. Game DB and script layer
+2. Game DB and script layer (done)
 3. Quest engine
 4. World and hero generation
 5. Combat
