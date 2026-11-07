@@ -1,0 +1,68 @@
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { MIGRATIONS } from './schema.js';
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+export function defaultGameDbPath() {
+  return process.env.JSDND_GAME_DB ?? resolve(repoRoot, 'data', 'game.db');
+}
+
+export function migrate(db) {
+  db.exec(
+    'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)',
+  );
+  const applied = new Set(db.prepare('SELECT version FROM schema_migrations').all().map((r) => r.version));
+  for (const { version, sql } of MIGRATIONS) {
+    if (applied.has(version)) continue;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec(sql);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(
+        version,
+        new Date().toISOString(),
+      );
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+}
+
+// Nesting depth per connection. Tracked here instead of reading db.isTransaction,
+// which older Node versions that already ship node:sqlite do not have.
+const openBlocks = new WeakMap();
+
+// Runs fn inside one write transaction. Rolls back and rethrows if fn throws.
+// Re-entrant: inside an open block, fn simply joins it and the outer block decides.
+export function inTransaction(db, fn) {
+  if (openBlocks.has(db)) return fn();
+  db.exec('BEGIN IMMEDIATE');
+  openBlocks.set(db, true);
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  } finally {
+    openBlocks.delete(db);
+  }
+}
+
+export function openGameDb(path = defaultGameDbPath()) {
+  mkdirSync(dirname(path), { recursive: true });
+  const db = new DatabaseSync(path);
+  // busy_timeout goes first: switching to WAL needs a lock, and parallel script calls
+  // would otherwise fail with "database is locked" instead of waiting their turn.
+  db.exec('PRAGMA busy_timeout = 5000');
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA synchronous = NORMAL');
+  db.exec('PRAGMA foreign_keys = ON');
+  migrate(db);
+  return db;
+}
