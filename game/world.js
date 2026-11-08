@@ -2,6 +2,7 @@ import { inTransaction } from './db.js';
 import { getHero } from './hero.js';
 import { getProgress } from './quests.js';
 import { lintVoice } from './voice.js';
+import { worldStatus } from './world-status.js';
 import { SKELETON } from '../world/skeleton.js';
 import { QUESTS } from '../quests/index.js';
 
@@ -10,9 +11,12 @@ const now = () => new Date().toISOString();
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-// The world is locked as soon as the player attempts a quest, so names never change mid-game.
+// The world is locked once onboarding is finished (setting and world complete) and the player
+// has attempted a quest, so names never change mid-game. A stray attempt made before the world
+// exists does not lock anything, so onboarding can always be finished.
 function assertNotStarted(db, saveId) {
-  if (db.prepare('SELECT 1 FROM quest_attempts WHERE save_id = ? LIMIT 1').get(saveId)) {
+  const attempted = db.prepare('SELECT 1 FROM quest_attempts WHERE save_id = ? LIMIT 1').get(saveId);
+  if (attempted && worldStatus(db, saveId).complete) {
     throw new Error('The game has started (a quest was attempted), so the world is locked.');
   }
 }
@@ -114,17 +118,14 @@ export function fillWorld(db, saveId, data) {
   return { locations: locationSlots.length, npcs: npcSlots.length };
 }
 
-export function worldStatus(db, saveId) {
-  const settingSet = Boolean(db.prepare('SELECT 1 FROM world_settings WHERE save_id = ?').get(saveId));
-  const locationsFilled = db.prepare('SELECT COUNT(*) AS n FROM world_locations WHERE save_id = ?').get(saveId).n;
-  const npcsFilled = db.prepare('SELECT COUNT(*) AS n FROM world_npcs WHERE save_id = ?').get(saveId).n;
-  const locationsTotal = SKELETON.locations.length;
-  const npcsTotal = SKELETON.npcs.length;
-  const missing = [];
-  if (!settingSet) missing.push('setting');
-  if (locationsFilled < locationsTotal) missing.push('locations');
-  if (npcsFilled < npcsTotal) missing.push('npcs');
-  return { settingSet, locationsFilled, locationsTotal, npcsFilled, npcsTotal, missing, complete: missing.length === 0 };
+export { worldStatus };
+
+// What the Master needs to recall the world's voice when a saved game is resumed.
+export function getSetting(db, saveId) {
+  const row = db
+    .prepare('SELECT source, name, description, voice FROM world_settings WHERE save_id = ?')
+    .get(saveId);
+  return row ? { source: row.source, name: row.name, description: row.description, voice: row.voice } : null;
 }
 
 // Everything below needs a hero and a finished world.

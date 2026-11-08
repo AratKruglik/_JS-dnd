@@ -1,5 +1,6 @@
 import { inTransaction } from './db.js';
 import { ABILITIES, STANDARD_RACES, resolveName, validatePointBuy, validateCustomBonuses } from './rules.js';
+import { worldStatus } from './world-status.js';
 
 export { ABILITIES };
 
@@ -63,6 +64,15 @@ export function createHeroFromChoices(db, saveId, { name, race, heroClass, score
   }
 
   return inTransaction(db, () => {
+    // Until the world is complete the player is still onboarding and may start over.
+    const existing = db.prepare('SELECT id FROM heroes WHERE save_id = ?').get(saveId);
+    if (existing) {
+      if (worldStatus(db, saveId).complete) {
+        throw new Error('You already have a hero and the adventure has begun, so the hero cannot be replaced.');
+      }
+      db.prepare('DELETE FROM hero_abilities WHERE hero_id = ?').run(existing.id);
+      db.prepare('DELETE FROM heroes WHERE id = ?').run(existing.id);
+    }
     const heroId = createHero(db, saveId, { name: cleanName, race: resolvedRace.name, heroClass: resolvedClass.name });
     const update = db.prepare('UPDATE hero_abilities SET base = ?, trait_adjust = ? WHERE hero_id = ? AND ability = ?');
     ABILITIES.forEach((ability, i) => update.run(scores[i], raceBonuses[ability] ?? 0, heroId, ability));

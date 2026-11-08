@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSave, createHeroFromChoices, getHero } from '../../game/hero.js';
 import { applyTamperReset } from '../../game/reset.js';
+import { setSetting, fillWorld } from '../../game/world.js';
+import { SETTING, goodWorld } from './world-fixtures.js';
 import { freshDb, count } from './helpers.js';
 
 const setup = () => {
@@ -105,4 +107,24 @@ test('a tamper reset returns abilities to 8 and 0 but keeps the race and the des
   assert.deepEqual(hero.abilities.DEX, { base: 8, traitAdjust: 0 });
   assert.deepEqual(hero.abilities.INT, { base: 8, traitAdjust: 0 });
   assert.deepEqual([hero.race, hero.raceDescription, hero.level], ['Zorbian', 'Glass skin.', 1]);
+});
+
+test('hero create replaces the hero while onboarding is unfinished, so the player can start over', () => {
+  const { db, saveId } = setup();
+  createHeroFromChoices(db, saveId, base);
+  createHeroFromChoices(db, saveId, { ...base, name: 'Legolas', race: 'elf', heroClass: 'ranger', scores: [8, 15, 8, 8, 14, 8] });
+  const hero = getHero(db, saveId);
+  assert.deepEqual([hero.name, hero.race, hero.heroClass], ['Legolas', 'elf', 'ranger']);
+  assert.deepEqual(hero.abilities.DEX, { base: 15, traitAdjust: 2 });
+  assert.equal(count(db, 'heroes'), 1);
+  assert.equal(count(db, 'hero_abilities'), 6);
+});
+
+test('once the world is complete a second hero is refused with a readable message', () => {
+  const { db, saveId } = setup();
+  createHeroFromChoices(db, saveId, base);
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
+  assert.throws(() => createHeroFromChoices(db, saveId, { ...base, name: 'Other' }), /already have a hero/i);
+  assert.equal(getHero(db, saveId).name, 'Bilbo');
 });

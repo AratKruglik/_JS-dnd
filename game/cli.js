@@ -18,7 +18,8 @@ import {
   STANDARD_CLASSES,
   STANDARD_RACES,
 } from './rules.js';
-import { setSetting, fillWorld, worldStatus, look, go, talk } from './world.js';
+import { readFileSync } from 'node:fs';
+import { setSetting, fillWorld, worldStatus, getSetting, look, go, talk } from './world.js';
 import { lintVoice } from './voice.js';
 import { SKELETON } from '../world/skeleton.js';
 
@@ -27,9 +28,10 @@ const USAGE = `Commands:
   rules races | rules classes | rules pointbuy
   hero create --name <n> --race <r> --class <c> --scores <6 numbers like 15,14,13,12,10,8>
               [--bonuses STR=2,DEX=1] [--race-desc "<t>"] [--class-desc "<t>"]
-  hero show | hero new <name> <race> <class>   (new = default scores, for testing)
+  hero show
   world setting --source <offered|customized|written> --name <n> --desc <d> --voice <v>
-  world skeleton | world fill --data '<json>' | world status
+  world skeleton | world status | world show
+  world fill --data '<json>'   (or --data - to read the JSON from stdin, safe for apostrophes)
   look | go <exit> | talk <npcSlot> | voice lint "<text>"
   roll <spec> [--context "<text>"]
   honor add <delta> <kind> "<reason>" | honor event <kind> ["<note>"] | honor show
@@ -311,7 +313,8 @@ function main() {
       } else if (sub === 'fill') {
         let data;
         try {
-          data = JSON.parse(need(flags.data, '--data'));
+          const raw = flags.data === '-' ? readFileSync(0, 'utf8') : need(flags.data, '--data');
+          data = JSON.parse(raw);
         } catch (error) {
           if (error instanceof SyntaxError) throw new Error('--data must be valid JSON.');
           throw error;
@@ -319,6 +322,10 @@ function main() {
         out({ ok: true, ...fillWorld(db, currentSaveId(), data) });
       } else if (sub === 'status') {
         out({ ok: true, ...worldStatus(db, currentSaveId()) });
+      } else if (sub === 'show') {
+        const setting = getSetting(db, currentSaveId());
+        if (!setting) fail('No setting yet. Run: node game/cli.js world setting --source ... --name ... --desc ... --voice ...');
+        out({ ok: true, setting });
       } else fail(USAGE);
       break;
     }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setSetting, fillWorld, worldStatus } from '../../game/world.js';
+import { setSetting, fillWorld, worldStatus, getSetting } from '../../game/world.js';
 import { createSave } from '../../game/hero.js';
 import { freshDb, count } from './helpers.js';
 
@@ -107,6 +107,7 @@ test('fillWorld again before play replaces the world cleanly', () => {
 
 test('the world is locked after the first quest attempt', () => {
   const { db, saveId } = setup();
+  setSetting(db, saveId, SETTING);
   fillWorld(db, saveId, goodWorld());
   db.prepare(
     "INSERT INTO quest_attempts (save_id, quest_id, created_at, status, expected, got, message, complexity) VALUES (?, 'dice-roll', 'now', 'fail', '', '', '', 2)",
@@ -139,4 +140,44 @@ test('worldStatus reports missing pieces and is complete only with setting, 6 lo
     missing: [],
     complete: true,
   });
+});
+
+const strayAttempt = (db, saveId) =>
+  db
+    .prepare(
+      "INSERT INTO quest_attempts (save_id, quest_id, created_at, status, expected, got, message, complexity) VALUES (?, 'dice-roll', 'now', 'fail', '', '', '', 2)",
+    )
+    .run(saveId);
+
+test('getSetting returns the saved setting, including the voice, or null', () => {
+  const { db, saveId } = setup();
+  assert.equal(getSetting(db, saveId), null);
+  setSetting(db, saveId, SETTING);
+  assert.deepEqual(getSetting(db, saveId), {
+    source: 'offered',
+    name: SETTING.name,
+    description: SETTING.description,
+    voice: SETTING.voice,
+  });
+});
+
+test('a stray quest attempt before onboarding is finished does not lock the world, finishing it does', () => {
+  const { db, saveId } = setup();
+  strayAttempt(db, saveId);
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
+  assert.equal(worldStatus(db, saveId).complete, true);
+  assert.throws(() => fillWorld(db, saveId, goodWorld('New ')), /locked|started/i);
+  assert.throws(() => setSetting(db, saveId, SETTING), /locked|started/i);
+});
+
+test('names that differ only by case or surrounding spaces count as duplicates', () => {
+  const { db, saveId } = setup();
+  const world = goodWorld();
+  world.locations.L2.name = '  PLACE 1 ';
+  assert.throws(() => fillWorld(db, saveId, world), /duplicate/i);
+  const npcs = goodWorld();
+  npcs.npcs.N2.name = 'person 1';
+  assert.throws(() => fillWorld(db, saveId, npcs), /duplicate/i);
+  assert.deepEqual(rows(db), [0, 0]);
 });

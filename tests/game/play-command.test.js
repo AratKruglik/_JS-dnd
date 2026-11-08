@@ -74,3 +74,21 @@ test('CLAUDE.md points playing to /play and developing to the rest', () => {
   assert.match(claudeMd, /\/play/);
   assert.match(claudeMd, /Dungeon Master/);
 });
+
+test('play.md recalls the setting on resume and skips steps that are already done', () => {
+  assert.match(play, /node game\/cli\.js world show/);
+  assert.match(play, /skip any step that is already done/i);
+  assert.match(play, /replaces the hero/i);
+});
+
+test('play.md sends the world on stdin as a heredoc so apostrophes are safe', () => {
+  assert.match(play, /node game\/cli\.js world fill --data - <<'EOF'/);
+  assert.match(play, /apostrophe/i);
+});
+
+test('the README try section does not tell a reader to touch the real save', () => {
+  const readme = readFileSync(join(root, 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /hero new/);
+  assert.match(readme, /throwaway/i);
+  assert.match(readme, /JSDND_GAME_DB/);
+});

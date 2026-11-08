@@ -26,11 +26,13 @@ function install() {
   };
   copyFileSync(realDice, env.JSDND_DICE_PATH);
   sealDice(env.JSDND_DICE_PATH, env.JSDND_DICE_SEAL);
-  const run = (...args) => {
-    const result = spawnSync('node', [cli, ...args], { cwd: dir, env, encoding: 'utf8' });
+  const runWith = (input, args) => {
+    const result = spawnSync('node', [cli, ...args], { cwd: dir, env, encoding: 'utf8', input });
     return { ...result, json: result.stdout.trim() ? JSON.parse(result.stdout) : null };
   };
-  return { dir, env, run, db: () => openGameDb(env.JSDND_GAME_DB) };
+  const run = (...args) => runWith(undefined, args);
+  const runInput = (input, ...args) => runWith(input, args);
+  return { dir, env, run, runInput, db: () => openGameDb(env.JSDND_GAME_DB) };
 }
 
 test('init creates the DB and one save and is safe to run twice', () => {
@@ -442,4 +444,68 @@ test('tampering with the dice blocks the new commands with exit 2', () => {
   assert.equal(run('look').status, 2);
   assert.equal(run('go', 'L2').status, 2);
   assert.equal(run('world', 'status').status, 2);
+});
+
+test('world show returns the setting with its voice, and errors before one is set', () => {
+  const { run } = install();
+  run('init');
+  const early = run('world', 'show');
+  assert.equal(early.status, 1);
+  assert.match(JSON.parse(early.stderr.trim()).error, /no setting/i);
+  assert.equal(run(...SETTING_ARGS).status, 0);
+  const shown = run('world', 'show');
+  assert.deepEqual(shown.json.setting, {
+    source: SETTING.source,
+    name: SETTING.name,
+    description: SETTING.description,
+    voice: SETTING.voice,
+  });
+});
+
+test('world fill can read its JSON from stdin, so apostrophes in names are safe', () => {
+  const { run, runInput } = install();
+  run('init');
+  const world = goodWorld();
+  world.locations.L1.name = "Smith's Forge";
+  world.locations.L1.description = "Where the smith's hammer never rests and nobody ain't busy.";
+  const result = runInput(JSON.stringify(world), 'world', 'fill', '--data', '-');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual([result.json.locations, result.json.npcs], [6, 6]);
+  const empty = runInput('', 'world', 'fill', '--data', '-');
+  assert.equal(empty.status, 1);
+  assert.match(JSON.parse(empty.stderr.trim()).error, /json/i);
+});
+
+test('hero new is not advertised in the usage the Master sees', () => {
+  const { run } = install();
+  const result = run();
+  assert.equal(result.status, 1);
+  assert.equal(JSON.parse(result.stderr.trim()).error.includes('hero new'), false);
+});
+
+test('onboarding can be redone: hero create twice, then the world, until the adventure begins', () => {
+  const { run } = install();
+  run('init');
+  assert.equal(run(...HERO_ARGS).status, 0);
+  const again = run('hero', 'create', '--name', 'Legolas', '--race', 'elf', '--class', 'ranger', '--scores', '8,15,8,8,14,8');
+  assert.equal(again.status, 0, again.stderr);
+  assert.equal(run('hero', 'show').json.hero.name, 'Legolas');
+  assert.equal(run(...SETTING_ARGS).status, 0);
+  assert.equal(run('world', 'fill', '--data', JSON.stringify(goodWorld())).status, 0);
+  const late = run('hero', 'create', '--name', 'Gimli', '--race', 'dwarf', '--class', 'fighter', '--scores', '15,8,14,8,8,8');
+  assert.equal(late.status, 1);
+  assert.match(JSON.parse(late.stderr.trim()).error, /already have a hero/i);
+});
+
+test('a stray hero new plus quest check before /play no longer blocks onboarding', () => {
+  const { run } = install();
+  run('init');
+  assert.equal(run('hero', 'new', 'Bilbo', 'hobbit', 'rogue').status, 0);
+  run('quest', 'start', 'dice-roll');
+  assert.equal(run('quest', 'check', 'dice-roll').status, 0);
+  assert.equal(run(...HERO_ARGS).status, 0);
+  assert.equal(run(...SETTING_ARGS).status, 0);
+  const fill = run('world', 'fill', '--data', JSON.stringify(goodWorld()));
+  assert.equal(fill.status, 0, fill.stderr);
+  assert.equal(run('world', 'status').json.complete, true);
 });

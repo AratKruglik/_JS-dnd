@@ -125,3 +125,9 @@ test('a flavor npc has no offer', () => {
   assert.equal(result.npc.slot, 'N4');
   assert.equal(result.offer, null);
 });
+
+test('slots are matched in any letter case', () => {
+  const { db, saveId } = ready();
+  assert.equal(talk(db, saveId, 'n1').npc.slot, 'N1');
+  assert.equal(go(db, saveId, 'l2').location.slot, 'L2');
+});

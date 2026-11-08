@@ -25,9 +25,17 @@ const normalize = (text) =>
     .replace(/[‘’]/g, "'")
     .replace(/\s+/g, ' ');
 
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Whole words only, so "as an aide" or "as an airship" never trips "as an ai".
+const MATCHERS = BANNED_PHRASES.map((phrase) => ({
+  phrase,
+  pattern: new RegExp(`(?<![a-z0-9])${escapeRegex(phrase)}(?![a-z0-9])`),
+}));
+
 export function lintVoice(text) {
   if (typeof text !== 'string') return { ok: true, hits: [] };
   const flat = normalize(text);
-  const hits = BANNED_PHRASES.filter((phrase) => flat.includes(phrase));
+  const hits = MATCHERS.filter(({ pattern }) => pattern.test(flat)).map(({ phrase }) => phrase);
   return { ok: hits.length === 0, hits };
 }

@@ -88,17 +88,19 @@ node --test          # runs the test suite
 node dev/cli.js status
 ```
 
-The game scripts the Master will use already work. Every answer is one line of JSON:
+The game scripts the Master will use already work, and every answer is one line of JSON. They write to your local save, so to experiment before you play, point them at a throwaway save first (open a new terminal when you are done):
 
 ```bash
-node game/cli.js hero new Bilbo hobbit rogue
+export JSDND_GAME_DB=$(mktemp -d)/game.db JSDND_PLAYER_DIR=$(mktemp -d)
+node game/cli.js init
+node game/cli.js hero create --name Bilbo --race hobbit --class rogue --scores 8,15,14,8,8,15
 node game/cli.js roll 2d6 --context "goblin attack"
 node game/cli.js honor add 10 help "helped the baker"
 node game/cli.js fight start "shopkeeper warned twice"
 node game/cli.js integrity check
 ```
 
-The quest loop works too. A quest names a file in `player/`, you write your solution there, and the game checks it:
+The quest loop works too (use the same throwaway save). A quest names a file in `player/`, you write your solution there, and the game checks it:
 
 ```bash
 node game/cli.js quest list
