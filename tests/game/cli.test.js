@@ -66,7 +66,10 @@ test('fight round trip: start, two logs, end, show returns two ordered steps', (
   run('init');
   const { fightId } = run('fight', 'start', 'shopkeeper warned twice').json;
   const rolled = run('roll', '1d20').json;
-  assert.equal(run('fight', 'log', String(fightId), 'hero', 'swing', 'wide arc', '--roll', String(rolled.id)).json.seq, 1);
+  assert.equal(
+    run('fight', 'log', String(fightId), 'hero', 'swing', 'wide arc', '--roll', String(rolled.id)).json.seq,
+    1,
+  );
   assert.equal(run('fight', 'log', String(fightId), 'shopkeeper', 'dodge').json.seq, 2);
   assert.equal(run('fight', 'end', String(fightId), 'won').status, 0);
   const shown = run('fight', 'show', String(fightId));
@@ -210,7 +213,10 @@ test('parallel commands do not fail with a locked database', async () => {
   const jobs = [];
   for (let i = 0; i < 20; i++) jobs.push(runOne('honor', 'show'), runOne('roll', 'd20'));
   const statuses = await Promise.all(jobs);
-  assert.deepEqual(statuses.filter((s) => s !== 0), []);
+  assert.deepEqual(
+    statuses.filter((s) => s !== 0),
+    [],
+  );
 });
 
 const solutionFile = (id, kind = 'reference') => join(root, 'tests', 'quests', 'solutions', `${id}.${kind}.js`);
@@ -303,7 +309,11 @@ test('quest hint logs a hint and extra arguments are rejected on the new command
   const { run } = install();
   run('init');
   assert.equal(run('quest', 'hint', 'dice-roll', 'npc_speech', 'the old wizard rambled').json.hintsUsed, 1);
-  for (const args of [['quest', 'progress', 'extra'], ['link', 'check', 'a', 'b'], ['quest', 'list', 'x']]) {
+  for (const args of [
+    ['quest', 'progress', 'extra'],
+    ['link', 'check', 'a', 'b'],
+    ['quest', 'list', 'x'],
+  ]) {
     const result = run(...args);
     assert.equal(result.status, 1, `${args.join(' ')} should be rejected`);
     assert.match(JSON.parse(result.stderr.trim()).error, /argument/i);
@@ -318,8 +328,30 @@ test('tampering with the dice blocks quest commands with exit 2', () => {
   assert.equal(run('quest', 'check', 'dice-roll').status, 2);
 });
 
-const HERO_ARGS = ['hero', 'create', '--name', 'Bilbo', '--race', 'hobbit', '--class', 'rogue', '--scores', '8,15,14,8,8,15'];
-const SETTING_ARGS = ['world', 'setting', '--source', SETTING.source, '--name', SETTING.name, '--desc', SETTING.description, '--voice', SETTING.voice];
+const HERO_ARGS = [
+  'hero',
+  'create',
+  '--name',
+  'Bilbo',
+  '--race',
+  'hobbit',
+  '--class',
+  'rogue',
+  '--scores',
+  '8,15,14,8,8,15',
+];
+const SETTING_ARGS = [
+  'world',
+  'setting',
+  '--source',
+  SETTING.source,
+  '--name',
+  SETTING.name,
+  '--desc',
+  SETTING.description,
+  '--voice',
+  SETTING.voice,
+];
 
 function readyGame() {
   const game = install();
@@ -346,7 +378,18 @@ test('rules lists the standard races with bonuses, the classes, and the point bu
 test('hero create stores a valid hero and rejects an invalid spread with exit 1 and nothing written', () => {
   const { run } = install();
   run('init');
-  const bad = run('hero', 'create', '--name', 'Bilbo', '--race', 'elf', '--class', 'rogue', '--scores', '15,15,15,15,8,8');
+  const bad = run(
+    'hero',
+    'create',
+    '--name',
+    'Bilbo',
+    '--race',
+    'elf',
+    '--class',
+    'rogue',
+    '--scores',
+    '15,15,15,15,8,8',
+  );
   assert.equal(bad.status, 1);
   assert.match(JSON.parse(bad.stderr.trim()).error, /points/i);
   assert.equal(run('hero', 'show').status, 1);
@@ -360,8 +403,20 @@ test('a custom race round trip with approved bonuses and a description', () => {
   const { run } = install();
   run('init');
   const result = run(
-    'hero', 'create', '--name', 'Zed', '--race', 'Zorbian', '--class', 'wizard', '--scores', '8,8,8,15,8,8',
-    '--bonuses', 'INT=2,STR=-1', '--race-desc', '- Glass skin that hums.',
+    'hero',
+    'create',
+    '--name',
+    'Zed',
+    '--race',
+    'Zorbian',
+    '--class',
+    'wizard',
+    '--scores',
+    '8,8,8,15,8,8',
+    '--bonuses',
+    'INT=2,STR=-1',
+    '--race-desc',
+    '- Glass skin that hums.',
   );
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(result.json.hero.abilities.INT, { base: 15, traitAdjust: 2 });
@@ -412,7 +467,11 @@ test('look, go, and talk work end to end after fill, and going to a non-exit exi
 test('voice lint returns hits for AI-speak and ok for clean prose', () => {
   const { run } = install();
   run('init');
-  assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json, { ok: true, lint: false, hits: ['great question'] });
+  assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json, {
+    ok: true,
+    lint: false,
+    hits: ['great question'],
+  });
   assert.deepEqual(run('voice', 'lint', 'The bridge is out.').json, { ok: true, lint: true, hits: [] });
 });
 
@@ -437,7 +496,18 @@ test('each command accepts only its own options and no extra arguments', () => {
 test('dash-led and negative values inside options are accepted as values', () => {
   const { run } = install();
   run('init');
-  const result = run('world', 'setting', '--source', 'written', '--name', '- Odd Name', '--desc', '-5 degrees and falling', '--voice', '- terse');
+  const result = run(
+    'world',
+    'setting',
+    '--source',
+    'written',
+    '--name',
+    '- Odd Name',
+    '--desc',
+    '-5 degrees and falling',
+    '--voice',
+    '- terse',
+  );
   assert.equal(result.status, 0, result.stderr);
 });
 
@@ -490,12 +560,34 @@ test('onboarding can be redone: hero create twice, then the world, until the adv
   const { run } = install();
   run('init');
   assert.equal(run(...HERO_ARGS).status, 0);
-  const again = run('hero', 'create', '--name', 'Legolas', '--race', 'elf', '--class', 'ranger', '--scores', '8,15,8,8,14,8');
+  const again = run(
+    'hero',
+    'create',
+    '--name',
+    'Legolas',
+    '--race',
+    'elf',
+    '--class',
+    'ranger',
+    '--scores',
+    '8,15,8,8,14,8',
+  );
   assert.equal(again.status, 0, again.stderr);
   assert.equal(run('hero', 'show').json.hero.name, 'Legolas');
   assert.equal(run(...SETTING_ARGS).status, 0);
   assert.equal(run('world', 'fill', '--data', JSON.stringify(goodWorld())).status, 0);
-  const late = run('hero', 'create', '--name', 'Gimli', '--race', 'dwarf', '--class', 'fighter', '--scores', '15,8,14,8,8,8');
+  const late = run(
+    'hero',
+    'create',
+    '--name',
+    'Gimli',
+    '--race',
+    'dwarf',
+    '--class',
+    'fighter',
+    '--scores',
+    '15,8,14,8,8,8',
+  );
   assert.equal(late.status, 1);
   assert.match(JSON.parse(late.stderr.trim()).error, /already have a hero/i);
 });
@@ -578,7 +670,13 @@ test('an advanced move: propose from stdin, then a correct solution wins and a w
 test('a bad move problem is rejected with a readable error and nothing stored', () => {
   const { run, runInput, db } = readyGame();
   run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
-  const bad = runInput(JSON.stringify({ ...MOVE_PROBLEM, reference: 'export function solve(a, b) { return 0; }' }), 'move', 'propose', '--data', '-');
+  const bad = runInput(
+    JSON.stringify({ ...MOVE_PROBLEM, reference: 'export function solve(a, b) { return 0; }' }),
+    'move',
+    'propose',
+    '--data',
+    '-',
+  );
   assert.equal(bad.status, 1);
   assert.match(JSON.parse(bad.stderr.trim()).error, /reference/i);
   assert.equal(count(db(), 'fight_moves'), 0);
@@ -604,7 +702,11 @@ test('the new combat commands reject extra arguments and foreign options', () =>
 test('tampering with the dice blocks the combat commands with exit 2', () => {
   const { env, run } = readyGame();
   appendFileSync(env.JSDND_DICE_PATH, '\n// cheat\n');
-  for (const args of [['fight', 'attack'], ['npc', 'warn', 'N1'], ['move', 'check', '1']]) {
+  for (const args of [
+    ['fight', 'attack'],
+    ['npc', 'warn', 'N1'],
+    ['move', 'check', '1'],
+  ]) {
     assert.equal(run(...args).status, 2, args.join(' '));
   }
 });
@@ -660,11 +762,20 @@ test('collapse blocks every play command with the place and hours, and leaves re
   game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
   setReading(game, 99, 150);
   const blocked = [
-    ['go', 'L2'], ['talk', 'N1'], ['roll', '1d20'], ['npc', 'warn', 'N1'],
-    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero'], ['fight', 'attack'], ['fight', 'flee'],
-    ['move', 'propose', '--data', '-'], ['move', 'check', '1'],
-    ['quest', 'start', 'dice-roll'], ['quest', 'check', 'dice-roll'], ['quest', 'judge', 'dice-roll', 'clean'],
-    ['quest', 'hint', 'dice-roll', 'npc_speech'], ['link', 'use', 'dice-roll', 'https://developer.mozilla.org/'],
+    ['go', 'L2'],
+    ['talk', 'N1'],
+    ['roll', '1d20'],
+    ['npc', 'warn', 'N1'],
+    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero'],
+    ['fight', 'attack'],
+    ['fight', 'flee'],
+    ['move', 'propose', '--data', '-'],
+    ['move', 'check', '1'],
+    ['quest', 'start', 'dice-roll'],
+    ['quest', 'check', 'dice-roll'],
+    ['quest', 'judge', 'dice-roll', 'clean'],
+    ['quest', 'hint', 'dice-roll', 'npc_speech'],
+    ['link', 'use', 'dice-roll', 'https://developer.mozilla.org/'],
   ];
   for (const args of blocked) {
     const result = game.run(...args);
@@ -673,7 +784,16 @@ test('collapse blocks every play command with the place and hours, and leaves re
     assert.deepEqual([error.collapsed, error.location, error.hours], [true, 'Place 1', 3], args.join(' '));
     assert.match(error.error, /completely tired/i);
   }
-  for (const args of [['look'], ['stamina', 'show'], ['hero', 'show'], ['honor', 'show'], ['world', 'status'], ['integrity', 'check'], ['quest', 'list'], ['fight', 'state']]) {
+  for (const args of [
+    ['look'],
+    ['stamina', 'show'],
+    ['hero', 'show'],
+    ['honor', 'show'],
+    ['world', 'status'],
+    ['integrity', 'check'],
+    ['quest', 'list'],
+    ['fight', 'state'],
+  ]) {
     assert.equal(game.run(...args).status, 0, args.join(' '));
   }
   assert.equal(game.run('fight', 'state').json.fight.status, 'open');
@@ -699,7 +819,13 @@ test('a tampered dice file still exits 2 during a collapse', () => {
 test('collapse also stops honor edits and the legacy fight commands', () => {
   const game = readyGame();
   setReading(game, 99);
-  for (const args of [['honor', 'add', '50', 'quest', 'free honor'], ['honor', 'event', 'cheat', 'x'], ['fight', 'start', 'brawl'], ['fight', 'end', '1', 'won'], ['fight', 'log', '1', 'hero', 'attack']]) {
+  for (const args of [
+    ['honor', 'add', '50', 'quest', 'free honor'],
+    ['honor', 'event', 'cheat', 'x'],
+    ['fight', 'start', 'brawl'],
+    ['fight', 'end', '1', 'won'],
+    ['fight', 'log', '1', 'hero', 'attack'],
+  ]) {
     const result = game.run(...args);
     assert.equal(result.status, 1, args.join(' '));
     assert.equal(JSON.parse(result.stderr.trim()).collapsed, true, args.join(' '));
@@ -748,7 +874,10 @@ function solveAllQuests(game) {
   const playerDir = game.env.JSDND_PLAYER_DIR;
   mkdirSync(playerDir, { recursive: true });
   for (const quest of QUESTS) {
-    copyFileSync(join(root, 'tests', 'quests', 'solutions', `${quest.id}.reference.js`), join(playerDir, `${quest.id}.js`));
+    copyFileSync(
+      join(root, 'tests', 'quests', 'solutions', `${quest.id}.reference.js`),
+      join(playerDir, `${quest.id}.js`),
+    );
     checkQuest(db, 1, quest.id, { playerDir, timeoutMs: 15000 });
     judgeQuest(db, 1, quest.id, 'clean', null, { playerDir });
   }

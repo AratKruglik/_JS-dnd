@@ -54,7 +54,12 @@ test('deep equality works for arrays and objects', () => {
 });
 
 test('syntax errors, import throws, process.exit, and a missing solve are errors', () => {
-  for (const code of ['export function solve( {', "throw new Error('boom');", 'process.exit(0);', 'export const other = 1;']) {
+  for (const code of [
+    'export function solve( {',
+    "throw new Error('boom');",
+    'process.exit(0);',
+    'export const other = 1;',
+  ]) {
     const result = run(code);
     assert.equal(result.status, 'error', code);
     assert.ok(result.message.length > 0 && !result.message.includes('\n'));
@@ -115,7 +120,9 @@ test('validateMoveProblem rejects bad shapes and bad references', () => {
 
 test('validateMoveProblem rejects a looping reference without hanging', () => {
   const started = Date.now();
-  const result = validateMoveProblem(problem({ reference: 'export function solve() { while (true) {} }' }), { timeoutMs: 500 });
+  const result = validateMoveProblem(problem({ reference: 'export function solve() { while (true) {} }' }), {
+    timeoutMs: 500,
+  });
   assert.equal(result.ok, false);
   assert.ok(Date.now() - started < 3000);
 });

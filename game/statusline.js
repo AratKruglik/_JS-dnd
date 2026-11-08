@@ -15,7 +15,9 @@ function readPayload() {
 function line() {
   const reading = parsePayload(readPayload());
   const now = Date.now();
-  const fromPayload = reading ? renderBar({ ...reading, estimated: false }, now, 10, { color: true }) : 'STAMINA unknown';
+  const fromPayload = reading
+    ? renderBar({ ...reading, estimated: false }, now, 10, { color: true })
+    : 'STAMINA unknown';
   if (!existsSync(defaultGameDbPath())) return fromPayload;
   try {
     // A status line must not wait on a busy game command or change the schema.

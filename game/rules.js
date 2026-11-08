@@ -58,7 +58,11 @@ export function resolveName(kind, name) {
 export function validatePointBuy(scores) {
   const errors = [];
   if (!Array.isArray(scores) || scores.length !== ABILITIES.length) {
-    return { ok: false, spent: 0, errors: [`Give exactly ${ABILITIES.length} scores, one per ability (${ABILITIES.join(', ')}).`] };
+    return {
+      ok: false,
+      spent: 0,
+      errors: [`Give exactly ${ABILITIES.length} scores, one per ability (${ABILITIES.join(', ')}).`],
+    };
   }
   let spent = 0;
   scores.forEach((score, i) => {
@@ -84,13 +88,17 @@ export function validateCustomBonuses(bonuses) {
     if (!ABILITIES.includes(ability)) {
       errors.push(`Unknown ability "${ability}". Use ${ABILITIES.join(', ')}.`);
     } else if (!Number.isInteger(value) || value < CUSTOM_EACH_MIN || value > CUSTOM_EACH_MAX) {
-      errors.push(`${ability} bonus must be a whole number from ${CUSTOM_EACH_MIN} to ${CUSTOM_EACH_MAX}, got ${JSON.stringify(value)}.`);
+      errors.push(
+        `${ability} bonus must be a whole number from ${CUSTOM_EACH_MIN} to ${CUSTOM_EACH_MAX}, got ${JSON.stringify(value)}.`,
+      );
     } else if (value > 0) {
       positives += value;
     }
   }
   if (errors.length === 0 && positives > CUSTOM_POSITIVE_TOTAL) {
-    errors.push(`Positive bonuses add up to ${positives}, but the most a custom race gets is ${CUSTOM_POSITIVE_TOTAL}.`);
+    errors.push(
+      `Positive bonuses add up to ${positives}, but the most a custom race gets is ${CUSTOM_POSITIVE_TOTAL}.`,
+    );
   }
   return { ok: errors.length === 0, errors };
 }

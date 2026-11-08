@@ -1,0 +1,10 @@
+node_modules/
+data/
+player/
+.dev/
+package-lock.json
+# The dice file is fingerprinted: any formatting change would count as tampering.
+game/dice.js
+# Docs and markdown have their own formatter.
+*.md
+docs/

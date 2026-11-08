@@ -29,9 +29,7 @@ test('an ability outside the six is rejected by the schema', () => {
   const db = freshDb();
   const saveId = createSave(db, {});
   const heroId = createHero(db, saveId, { name: 'A', race: 'elf', heroClass: 'druid' });
-  assert.throws(() =>
-    db.prepare("INSERT INTO hero_abilities (hero_id, ability) VALUES (?, 'LUCK')").run(heroId),
-  );
+  assert.throws(() => db.prepare("INSERT INTO hero_abilities (hero_id, ability) VALUES (?, 'LUCK')").run(heroId));
 });
 
 test('getHero returns null when the save has no hero', () => {

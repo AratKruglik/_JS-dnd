@@ -10,14 +10,7 @@ import { classifyLink } from './links.js';
 import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from './quests.js';
 import { QUESTS } from '../quests/index.js';
 import { createHeroFromChoices } from './hero.js';
-import {
-  ABILITIES,
-  ALIASES,
-  POINT_BUY_BUDGET,
-  POINT_BUY_COSTS,
-  STANDARD_CLASSES,
-  STANDARD_RACES,
-} from './rules.js';
+import { ABILITIES, ALIASES, POINT_BUY_BUDGET, POINT_BUY_COSTS, STANDARD_CLASSES, STANDARD_RACES } from './rules.js';
 import { readFileSync } from 'node:fs';
 import { setSetting, fillWorld, worldStatus, getSetting, look, go, talk } from './world.js';
 import { lintVoice } from './voice.js';
@@ -54,8 +47,25 @@ const USAGE = `Commands:
 
 // Play actions that stop while the hero is collapsed from tiredness. Read-only commands keep working.
 const BLOCKED_WHEN_COLLAPSED = new Set([
-  'go', 'talk', 'roll', 'honor add', 'honor event', 'fight start', 'fight log', 'fight end', 'npc warn', 'fight begin', 'fight attack', 'fight flee', 'move propose', 'move check',
-  'quest start', 'quest check', 'quest judge', 'quest hint', 'link use',
+  'go',
+  'talk',
+  'roll',
+  'honor add',
+  'honor event',
+  'fight start',
+  'fight log',
+  'fight end',
+  'npc warn',
+  'fight begin',
+  'fight attack',
+  'fight flee',
+  'move propose',
+  'move check',
+  'quest start',
+  'quest check',
+  'quest judge',
+  'quest hint',
+  'link use',
 ]);
 
 // One line of compact JSON per answer keeps token use low for the Master.
@@ -68,9 +78,23 @@ function fail(message, code = 1) {
 
 // Our own tiny parser: values like -5 or "- crit" are plain values, not options.
 const VALUE_OPTIONS = new Set([
-  '--context', '--roll', '--name', '--race', '--class', '--scores', '--bonuses',
-  '--race-desc', '--class-desc', '--source', '--desc', '--voice', '--data',
-  '--npc', '--tier', '--aggressor', '--quest',
+  '--context',
+  '--roll',
+  '--name',
+  '--race',
+  '--class',
+  '--scores',
+  '--bonuses',
+  '--race-desc',
+  '--class-desc',
+  '--source',
+  '--desc',
+  '--voice',
+  '--data',
+  '--npc',
+  '--tier',
+  '--aggressor',
+  '--quest',
 ]);
 
 // Which options each command accepts. Anything else is rejected, never silently ignored.
@@ -129,7 +153,9 @@ function readJsonFlag(value) {
 // "15,14,13,12,10,8" -> [15, 14, 13, 12, 10, 8]
 function parseScores(text) {
   if (text === undefined) throw new Error('Missing --scores. Give six numbers in order STR,DEX,CON,INT,WIS,CHA.');
-  return String(text).split(',').map((part) => toInt(part.trim(), 'score'));
+  return String(text)
+    .split(',')
+    .map((part) => toInt(part.trim(), 'score'));
 }
 
 // "STR=2,DEX=-1" -> { STR: 2, DEX: -1 }
@@ -152,7 +178,8 @@ function main() {
   const flagKey = `${command} ${sub}`;
   const allowed = ALLOWED_FLAGS[flagKey] ?? ALLOWED_FLAGS[command] ?? [];
   for (const flag of Object.keys(flags)) {
-    if (!allowed.includes(flag)) throw new Error(`Option --${flag} does not belong to "${command}${sub ? ` ${sub}` : ''}".`);
+    if (!allowed.includes(flag))
+      throw new Error(`Option --${flag} does not belong to "${command}${sub ? ` ${sub}` : ''}".`);
   }
 
   // The dice check runs before every command.
@@ -192,7 +219,9 @@ function main() {
   const actionKey = ['go', 'talk', 'roll'].includes(command) ? command : flagKey;
   if (stamina?.collapsed && BLOCKED_WHEN_COLLAPSED.has(actionKey)) {
     const spot = db
-      .prepare('SELECT wl.name FROM world_locations wl JOIN heroes h ON h.save_id = wl.save_id AND h.location_slot = wl.slot WHERE h.save_id = ?')
+      .prepare(
+        'SELECT wl.name FROM world_locations wl JOIN heroes h ON h.save_id = wl.save_id AND h.location_slot = wl.slot WHERE h.save_id = ?',
+      )
       .get(save.id);
     const location = spot?.name ?? 'the spot where they stood';
     console.error(
@@ -228,7 +257,10 @@ function main() {
         out({ ok: true, heroId });
       } else if (sub === 'show') {
         const hero = getHero(db, currentSaveId());
-        if (!hero) fail('No hero yet. Run: node game/cli.js hero create --name <n> --race <r> --class <c> --scores <six numbers>');
+        if (!hero)
+          fail(
+            'No hero yet. Run: node game/cli.js hero create --name <n> --race <r> --class <c> --scores <six numbers>',
+          );
         out({ ok: true, hero });
       } else if (sub === 'create') {
         arity(rest, 0, 0, 'hero create --name <n> --race <r> --class <c> --scores <six numbers>');
@@ -366,12 +398,15 @@ function main() {
     }
     case 'move': {
       if (sub === 'propose') {
-        arity(rest, 0, 0, "move propose --data - (JSON on stdin)");
+        arity(rest, 0, 0, 'move propose --data - (JSON on stdin)');
         out({ ok: true, ...proposeMove(db, currentSaveId(), readJsonFlag(flags.data)) });
       } else if (sub === 'check') {
         arity(rest, 1, 1, 'move check <moveId>');
         const timeoutMs = process.env.JSDND_QUEST_TIMEOUT_MS ? Number(process.env.JSDND_QUEST_TIMEOUT_MS) : undefined;
-        out({ ok: true, ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs, modifiers: tiredness }) });
+        out({
+          ok: true,
+          ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs, modifiers: tiredness }),
+        });
       } else fail(USAGE);
       break;
     }
@@ -433,7 +468,8 @@ function main() {
         out({ ok: true, ...worldStatus(db, currentSaveId()) });
       } else if (sub === 'show') {
         const setting = getSetting(db, currentSaveId());
-        if (!setting) fail('No setting yet. Run: node game/cli.js world setting --source ... --name ... --desc ... --voice ...');
+        if (!setting)
+          fail('No setting yet. Run: node game/cli.js world setting --source ... --name ... --desc ... --voice ...');
         out({ ok: true, setting });
       } else fail(USAGE);
       break;

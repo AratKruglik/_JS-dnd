@@ -5,8 +5,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { openDevDb, defaultDevDbPath } from '../../dev/db.js';
 
-const fresh = () =>
-  openDevDb(join(mkdtempSync(join(tmpdir(), 'jsdnd-')), 'nested', 'dev.db'));
+const fresh = () => openDevDb(join(mkdtempSync(join(tmpdir(), 'jsdnd-')), 'nested', 'dev.db'));
 
 const now = () => new Date().toISOString();
 

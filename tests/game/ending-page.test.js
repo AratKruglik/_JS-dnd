@@ -88,7 +88,18 @@ test('the page shows the headline numbers and one row per solved quest', () => {
 
 test('the page still renders with no hero, no setting, and nothing solved', () => {
   const html = renderPage(
-    stats({ hero: null, setting: null, minutes: 0, hoursEstimated: 0, enemiesDefeated: 0, fights: 0, falls: 0, tasks: { solved: 0, total: 3, list: [] }, honor: [], complexity: [] }),
+    stats({
+      hero: null,
+      setting: null,
+      minutes: 0,
+      hoursEstimated: 0,
+      enemiesDefeated: 0,
+      fights: 0,
+      falls: 0,
+      tasks: { solved: 0, total: 3, list: [] },
+      honor: [],
+      complexity: [],
+    }),
   );
   assert.ok(!/NaN|Infinity|undefined|null/.test(html));
   assert.match(html, /0 of 3/);
@@ -105,10 +116,23 @@ test('charts render valid svg for empty, single, flat, and extreme series', () =
   const cases = [
     [],
     [{ x: 1000, y: 5 }],
-    [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }],
-    [{ x: 5, y: -100 }, { x: 5, y: 100 }],
-    [{ x: 1, y: -100 }, { x: 9, y: 100 }],
-    [{ x: Number.NaN, y: 1 }, { x: 2, y: Infinity }],
+    [
+      { x: 1, y: 3 },
+      { x: 2, y: 3 },
+      { x: 3, y: 3 },
+    ],
+    [
+      { x: 5, y: -100 },
+      { x: 5, y: 100 },
+    ],
+    [
+      { x: 1, y: -100 },
+      { x: 9, y: 100 },
+    ],
+    [
+      { x: Number.NaN, y: 1 },
+      { x: 2, y: Infinity },
+    ],
   ];
   for (const points of cases) {
     const svg = lineChart(points, { yMin: -100, yMax: 100, label: 'Honor' });
@@ -117,12 +141,24 @@ test('charts render valid svg for empty, single, flat, and extreme series', () =
     assert.ok(!/NaN|Infinity/.test(svg), JSON.stringify(points));
     for (const n of coords(svg)) assert.ok(Number.isFinite(n));
   }
-  const flat = lineChart([{ x: 1, y: 3 }, { x: 2, y: 3 }], { label: 'Flat' });
+  const flat = lineChart(
+    [
+      { x: 1, y: 3 },
+      { x: 2, y: 3 },
+    ],
+    { label: 'Flat' },
+  );
   assert.ok(!/NaN|Infinity/.test(flat));
 });
 
 test('honor at the floor and the ceiling stays inside the chart', () => {
-  const svg = lineChart([{ x: 1, y: -100 }, { x: 2, y: 100 }], { yMin: -100, yMax: 100, width: 640, height: 220, label: 'Honor' });
+  const svg = lineChart(
+    [
+      { x: 1, y: -100 },
+      { x: 2, y: 100 },
+    ],
+    { yMin: -100, yMax: 100, width: 640, height: 220, label: 'Honor' },
+  );
   const ys = [...svg.matchAll(/cy="([^"]+)"/g)].map((m) => Number(m[1]));
   assert.ok(ys.length === 2 && ys.every((y) => y >= 0 && y <= 220));
 });

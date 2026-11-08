@@ -6,9 +6,7 @@ export const HONOR_MAX = 100;
 const clamp = (value) => Math.min(HONOR_MAX, Math.max(HONOR_MIN, value));
 
 export function getHonor(db, saveId) {
-  const row = db
-    .prepare('SELECT honor_after FROM honor_events WHERE save_id = ? ORDER BY id DESC LIMIT 1')
-    .get(saveId);
+  const row = db.prepare('SELECT honor_after FROM honor_events WHERE save_id = ? ORDER BY id DESC LIMIT 1').get(saveId);
   return row ? row.honor_after : 0;
 }
 

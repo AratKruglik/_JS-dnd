@@ -6,9 +6,7 @@ import { addHonorEvent, getHonor, HONOR_MIN } from './honor.js';
 // Quest progress restarts by reading this marker (Plan 3). One reset per distinct fingerprint.
 export function applyTamperReset(db, saveId, { expected, found }) {
   return inTransaction(db, () => {
-    const seen = db
-      .prepare('SELECT 1 FROM resets WHERE save_id = ? AND fingerprint_found = ?')
-      .get(saveId, found);
+    const seen = db.prepare('SELECT 1 FROM resets WHERE save_id = ? AND fingerprint_found = ?').get(saveId, found);
     if (seen) return { applied: false };
 
     const hero = getHero(db, saveId);

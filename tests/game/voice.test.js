@@ -33,7 +33,10 @@ test('lintVoice handles non-strings without throwing', () => {
 });
 
 test('banned phrases only match whole words, so ordinary prose is not flagged by accident', () => {
-  assert.deepEqual(lintVoice('He served as an aide to the queen and later as an airship pilot.'), { ok: true, hits: [] });
+  assert.deepEqual(lintVoice('He served as an aide to the queen and later as an airship pilot.'), {
+    ok: true,
+    hits: [],
+  });
   assert.equal(lintVoice('As an AI, I cannot say.').ok, false);
   assert.equal(lintVoice('as an ai').ok, false);
   assert.equal(lintVoice('Great question!').ok, false);

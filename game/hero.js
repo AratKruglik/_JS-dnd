@@ -26,7 +26,11 @@ export function createHero(db, saveId, { name, race, heroClass }) {
 // The real onboarding path: validates everything before writing anything.
 // `scores` are the six point-buy scores in ability order. A standard race brings its own fixed
 // bonuses; a custom race needs a description and bonuses the player approved.
-export function createHeroFromChoices(db, saveId, { name, race, heroClass, scores, bonuses, raceDescription, classDescription }) {
+export function createHeroFromChoices(
+  db,
+  saveId,
+  { name, race, heroClass, scores, bonuses, raceDescription, classDescription },
+) {
   const cleanName = typeof name === 'string' ? name.trim() : '';
   if (!cleanName) throw new Error('The hero needs a name.');
 

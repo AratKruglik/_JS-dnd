@@ -37,19 +37,28 @@ test('the map is connected and exits are symmetric', () => {
 
 test('no location has more than 4 exits (choice prompts take 2 to 4 options)', () => {
   for (const location of SKELETON.locations) {
-    assert.ok(location.exits.length >= 1 && location.exits.length <= 4, `${location.slot} has ${location.exits.length} exits`);
+    assert.ok(
+      location.exits.length >= 1 && location.exits.length <= 4,
+      `${location.slot} has ${location.exits.length} exits`,
+    );
   }
 });
 
 test('every npc stands in a real location and quest holders follow the registry order', () => {
   for (const npc of SKELETON.npcs) assert.ok(bySlot[npc.location], `${npc.slot} is in unknown ${npc.location}`);
   const holders = SKELETON.npcs.filter((n) => n.questId).map((n) => n.questId);
-  assert.deepEqual(holders, QUESTS.map((q) => q.id));
+  assert.deepEqual(
+    holders,
+    QUESTS.map((q) => q.id),
+  );
   for (const id of holders) assert.ok(QUESTS.some((q) => q.id === id));
 });
 
 test('N7 is the final boss at the stronghold, holds no quest, and shares L6 with the captain', () => {
   const boss = SKELETON.npcs.find((n) => n.slot === 'N7');
   assert.deepEqual(boss, { slot: 'N7', location: 'L6', role: 'boss' });
-  assert.deepEqual(SKELETON.npcs.filter((n) => n.location === 'L6').map((n) => n.slot), ['N6', 'N7']);
+  assert.deepEqual(
+    SKELETON.npcs.filter((n) => n.location === 'L6').map((n) => n.slot),
+    ['N6', 'N7'],
+  );
 });

@@ -10,7 +10,9 @@ export function knockOut(db, saveId, npcSlot) {
 }
 
 export function isKnockedOut(db, saveId, npcSlot) {
-  const row = db.prepare('SELECT solves_at_knockout FROM npc_knockouts WHERE save_id = ? AND npc_slot = ?').get(saveId, npcSlot);
+  const row = db
+    .prepare('SELECT solves_at_knockout FROM npc_knockouts WHERE save_id = ? AND npc_slot = ?')
+    .get(saveId, npcSlot);
   return Boolean(row) && row.solves_at_knockout === solveCount(db, saveId);
 }
 

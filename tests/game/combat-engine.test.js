@@ -46,9 +46,20 @@ test('warnNpc counts per npc and per save, and allows a fight from the third war
 });
 
 test('beginFight needs a hero, a complete world, and the npc at the hero location', () => {
-  assert.throws(() => beginFight(...Object.values(ready({ hero: false })).slice(0, 2), { npcSlot: 'N1', tier: 'weak', aggressor: 'hero' }), /no hero/i);
+  assert.throws(
+    () =>
+      beginFight(...Object.values(ready({ hero: false })).slice(0, 2), {
+        npcSlot: 'N1',
+        tier: 'weak',
+        aggressor: 'hero',
+      }),
+    /no hero/i,
+  );
   const early = ready({ world: false });
-  assert.throws(() => beginFight(early.db, early.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero' }), /not ready/i);
+  assert.throws(
+    () => beginFight(early.db, early.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero' }),
+    /not ready/i,
+  );
   const { db, saveId } = ready();
   assert.throws(() => beginFight(db, saveId, { npcSlot: 'N2', tier: 'weak', aggressor: 'hero' }), /not here/i);
   assert.throws(() => beginFight(db, saveId, { npcSlot: 'N1', tier: 'giant', aggressor: 'hero' }), /tier/i);
@@ -60,24 +71,46 @@ test('an npc aggressor needs three warnings unless the fight is part of a quest'
   const { db, saveId } = ready();
   warnNpc(db, saveId, 'N1', 'a');
   warnNpc(db, saveId, 'N1', 'b');
-  assert.throws(() => beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() }), /warning/i);
+  assert.throws(
+    () => beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() }),
+    /warning/i,
+  );
   warnNpc(db, saveId, 'N1', 'c');
   const state = beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() });
   assert.equal(state.status, 'open');
 
   const quest = ready();
-  const fight = beginFight(quest.db, quest.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', questId: 'dice-roll', rng: heroFirst() });
+  const fight = beginFight(quest.db, quest.saveId, {
+    npcSlot: 'N1',
+    tier: 'weak',
+    aggressor: 'npc',
+    questId: 'dice-roll',
+    rng: heroFirst(),
+  });
   assert.equal(quest.db.prepare('SELECT quest_id FROM fights WHERE id = ?').get(fight.fightId).quest_id, 'dice-roll');
-  assert.throws(() => beginFight(quest.db, quest.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero', rng: heroFirst() }), /already/i);
+  assert.throws(
+    () => beginFight(quest.db, quest.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero', rng: heroFirst() }),
+    /already/i,
+  );
 });
 
 test('initiative decides who acts first and ties go to the hero', () => {
   const first = ready();
-  const hero = beginFight(first.db, first.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const hero = beginFight(first.db, first.saveId, {
+    npcSlot: 'N1',
+    tier: 'normal',
+    aggressor: 'hero',
+    rng: heroFirst(),
+  });
   assert.deepEqual([hero.hero.hp, hero.enemy.hp], [12, 14]);
 
   const tie = ready();
-  const tied = beginFight(tie.db, tie.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: script([10, 20], [13, 20]) });
+  const tied = beginFight(tie.db, tie.saveId, {
+    npcSlot: 'N1',
+    tier: 'normal',
+    aggressor: 'hero',
+    rng: script([10, 20], [13, 20]),
+  });
   assert.equal(tied.hero.hp, 12);
 
   const second = ready();
@@ -96,7 +129,10 @@ test('a hit lowers enemy HP, the enemy answers, and the log is gapless with link
   const state = heroAttack(db, saveId, { rng: script([15, 20], [5, 8], [2, 20]) });
   assert.deepEqual([state.enemy.hp, state.hero.hp, state.round, state.status], [6, 12, 2, 'open']);
   const log = getFightLog(db, state.fightId);
-  assert.deepEqual(log.map((s) => s.seq), log.map((_, i) => i + 1));
+  assert.deepEqual(
+    log.map((s) => s.seq),
+    log.map((_, i) => i + 1),
+  );
   assert.ok(log.filter((s) => ['attack', 'damage'].includes(s.action)).every((s) => s.rollId !== null));
 });
 
@@ -125,7 +161,12 @@ test('winning kills the enemy and honor follows the aggressor', () => {
 test('defeat knocks the hero out, sends them to L1, and costs no honor', () => {
   const { db, saveId } = ready();
   go(db, saveId, 'L2');
-  beginFight(db, saveId, { npcSlot: 'N2', tier: 'tough', aggressor: 'hero', rng: script([3, 20], [15, 20], [15, 20], [8, 8]) });
+  beginFight(db, saveId, {
+    npcSlot: 'N2',
+    tier: 'tough',
+    aggressor: 'hero',
+    rng: script([3, 20], [15, 20], [15, 20], [8, 8]),
+  });
   const lost = heroAttack(db, saveId, { rng: script([2, 20], [15, 20], [8, 8]) });
   assert.deepEqual([lost.status, lost.hero.hp], ['lost', 0]);
   assert.equal(look(db, saveId).location.slot, 'L1');
@@ -180,7 +221,12 @@ test('warnings reset when a fight ends, win, loss, or flee', () => {
   const other = ready();
   go(other.db, other.saveId, 'L2');
   ['a', 'b', 'c'].forEach((r) => warnNpc(other.db, other.saveId, 'N2', r));
-  beginFight(other.db, other.saveId, { npcSlot: 'N2', tier: 'tough', aggressor: 'npc', rng: script([3, 20], [15, 20], [15, 20], [8, 8]) });
+  beginFight(other.db, other.saveId, {
+    npcSlot: 'N2',
+    tier: 'tough',
+    aggressor: 'npc',
+    rng: script([3, 20], [15, 20], [15, 20], [8, 8]),
+  });
   assert.equal(heroAttack(other.db, other.saveId, { rng: script([2, 20], [15, 20], [8, 8]) }).status, 'lost');
   assert.deepEqual(warnNpc(other.db, other.saveId, 'N2', 'new'), { warnings: 1, mayFight: false });
 
@@ -203,7 +249,10 @@ test('an attack modifier turns a barely-hitting swing into a miss, and a natural
 
   const crit = ready();
   beginFight(crit.db, crit.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
-  const lucky = heroAttack(crit.db, crit.saveId, { rng: script([20, 20], [4, 8], [4, 8], [2, 20]), modifiers: { attack: -10 } });
+  const lucky = heroAttack(crit.db, crit.saveId, {
+    rng: script([20, 20], [4, 8], [4, 8], [2, 20]),
+    modifiers: { attack: -10 },
+  });
   assert.ok(lucky.enemy.hp < 14);
 });
 

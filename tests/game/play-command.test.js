@@ -44,7 +44,19 @@ test('play.md keeps all state in scripts and says so', () => {
 test('every "node game/cli.js <command>" in play.md exists in the CLI usage', () => {
   const probe = spawnSync('node', [join(root, 'game', 'cli.js')], { encoding: 'utf8' });
   const usage = JSON.parse(probe.stderr.trim()).error;
-  const needsSub = new Set(['hero', 'rules', 'world', 'quest', 'link', 'honor', 'fight', 'integrity', 'voice', 'npc', 'move']);
+  const needsSub = new Set([
+    'hero',
+    'rules',
+    'world',
+    'quest',
+    'link',
+    'honor',
+    'fight',
+    'integrity',
+    'voice',
+    'npc',
+    'move',
+  ]);
   const seen = new Set();
   for (const match of play.matchAll(/node game\/cli\.js ([a-z]+)(?: ([a-z]+))?/g)) {
     const [, command, sub] = match;
@@ -53,7 +65,18 @@ test('every "node game/cli.js <command>" in play.md exists in the CLI usage', ()
     if (command === 'ending') continue; // hidden on purpose, see the Ending test below
     assert.ok(usage.includes(phrase), `play.md uses "${phrase}" but the CLI usage does not list it`);
   }
-  for (const required of ['init', 'look', 'go', 'talk', 'roll', 'quest check', 'quest judge', 'honor event', 'link use', 'voice lint']) {
+  for (const required of [
+    'init',
+    'look',
+    'go',
+    'talk',
+    'roll',
+    'quest check',
+    'quest judge',
+    'honor event',
+    'link use',
+    'voice lint',
+  ]) {
     assert.ok(seen.has(required), `play.md never mentions "${required}"`);
   }
 });
@@ -102,7 +125,7 @@ test('play.md teaches warnings, tiers, the fight loop, and advanced moves', () =
     'node game/cli.js fight attack',
     'node game/cli.js fight flee',
     'node game/cli.js fight state',
-    'node game/cli.js move propose --data - <<\'EOF\'',
+    "node game/cli.js move propose --data - <<'EOF'",
     'node game/cli.js move check',
   ]) {
     assert.ok(play.includes(command), `play.md never mentions "${command}"`);
@@ -170,5 +193,8 @@ test('play.md has an Ending section for the boss and the hidden page, and the RE
   assert.match(ending, /never[^.]*(before|earlier)/i);
   const readme = readFileSync(join(root, 'README.md'), 'utf8');
   assert.doesNotMatch(readme, /ending build/);
-  assert.match(readme.split('\n').find((l) => l.includes('Hidden ending stats page')), /Done/);
+  assert.match(
+    readme.split('\n').find((l) => l.includes('Hidden ending stats page')),
+    /Done/,
+  );
 });

@@ -9,7 +9,10 @@ const [questId, playerPath, questsModule] = process.argv.slice(2);
 // The token arrives on stdin and is read before the player's file is imported.
 const token = readFileSync(0, 'utf8').split('\n')[0];
 
-const firstLine = (error) => String(error?.message ?? error).split('\n')[0].trim();
+const firstLine = (error) =>
+  String(error?.message ?? error)
+    .split('\n')[0]
+    .trim();
 
 function emit(result) {
   const line = `\n${token} ${JSON.stringify({ expected: '', got: '', message: '', ...result })}\n`;

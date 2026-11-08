@@ -35,7 +35,11 @@ function ready({ hero = true, world = true } = {}) {
 test('look shows the current location with exits and the npcs there', () => {
   const { db, saveId } = ready();
   const view = look(db, saveId);
-  assert.deepEqual(view.location, { slot: 'L1', name: 'Place 1', description: 'A dripping corner of the harbor, number 1.' });
+  assert.deepEqual(view.location, {
+    slot: 'L1',
+    name: 'Place 1',
+    description: 'A dripping corner of the harbor, number 1.',
+  });
   assert.deepEqual(view.exits, [
     { slot: 'L2', name: 'Place 2' },
     { slot: 'L3', name: 'Place 3' },
@@ -146,6 +150,9 @@ test('the stronghold shows both the captain and the final boss', () => {
   const { db, saveId } = ready();
   go(db, saveId, 'L3');
   go(db, saveId, 'L6');
-  assert.deepEqual(look(db, saveId).npcs.map((n) => n.slot), ['N6', 'N7']);
+  assert.deepEqual(
+    look(db, saveId).npcs.map((n) => n.slot),
+    ['N6', 'N7'],
+  );
   assert.equal(talk(db, saveId, 'N7').offer, null);
 });

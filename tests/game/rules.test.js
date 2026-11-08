@@ -67,7 +67,10 @@ test('every standard race except human stays within +2 each and +4 in total (the
       continue;
     }
     const values = Object.values(bonuses);
-    assert.ok(values.every((v) => v >= 1 && v <= 2), `${race} has a bonus outside 1 to 2`);
+    assert.ok(
+      values.every((v) => v >= 1 && v <= 2),
+      `${race} has a bonus outside 1 to 2`,
+    );
     assert.ok(values.reduce((a, b) => a + b, 0) <= 4, `${race} bonuses total more than 4`);
   }
 });

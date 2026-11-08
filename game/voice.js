@@ -19,11 +19,7 @@ export const BANNED_PHRASES = [
   'rest assured',
 ];
 
-const normalize = (text) =>
-  text
-    .toLowerCase()
-    .replace(/[‘’]/g, "'")
-    .replace(/\s+/g, ' ');
+const normalize = (text) => text.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
 
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

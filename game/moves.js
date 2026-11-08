@@ -6,7 +6,11 @@ import { runMoveTests, validateMoveProblem } from './move-runner.js';
 import { defaultPlayerDir } from './quests.js';
 
 const now = () => new Date().toISOString();
-const comment = (text) => text.split('\n').map((line) => `// ${line}`.trimEnd()).join('\n');
+const comment = (text) =>
+  text
+    .split('\n')
+    .map((line) => `// ${line}`.trimEnd())
+    .join('\n');
 
 // The Master proposes a problem for a spectacular move. Nothing is stored unless the problem's
 // own reference solution passes its own tests. The tests stay in the DB, hidden from the player.
@@ -21,9 +25,18 @@ export function proposeMove(db, saveId, problem, { playerDir = defaultPlayerDir(
 
   const moveId = Number(
     db
-      .prepare('INSERT INTO fight_moves (fight_id, created_at, title, brief, difficulty, tests, status) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(fight.id, now(), problem.title.trim(), problem.brief.trim(), problem.difficulty, JSON.stringify(problem.tests), 'open')
-      .lastInsertRowid,
+      .prepare(
+        'INSERT INTO fight_moves (fight_id, created_at, title, brief, difficulty, tests, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        fight.id,
+        now(),
+        problem.title.trim(),
+        problem.brief.trim(),
+        problem.difficulty,
+        JSON.stringify(problem.tests),
+        'open',
+      ).lastInsertRowid,
   );
   mkdirSync(playerDir, { recursive: true });
   const file = join(playerDir, `move-${moveId}.js`);
@@ -43,7 +56,11 @@ export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), 
   if (!move) throw new Error(`No move ${moveId} found in this fight.`);
   if (move.status !== 'open') throw new Error(`Move ${moveId} was already checked (${move.status}).`);
 
-  const check = runMoveTests(join(playerDir, `move-${moveId}.js`), JSON.parse(move.tests), timeoutMs ? { timeoutMs } : undefined);
+  const check = runMoveTests(
+    join(playerDir, `move-${moveId}.js`),
+    JSON.parse(move.tests),
+    timeoutMs ? { timeoutMs } : undefined,
+  );
   const won = check.status === 'pass';
   return inTransaction(db, () => {
     db.prepare('UPDATE fight_moves SET status = ? WHERE id = ?').run(won ? 'won' : 'failed', moveId);

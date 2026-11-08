@@ -19,7 +19,8 @@ function setup() {
   const saveId = createSave(db, {});
   const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-player-'));
   const opts = { playerDir, timeoutMs: 15000 };
-  const put = (id, kind = 'reference') => copyFileSync(join(solutions, `${id}.${kind}.js`), join(playerDir, `${id}.js`));
+  const put = (id, kind = 'reference') =>
+    copyFileSync(join(solutions, `${id}.${kind}.js`), join(playerDir, `${id}.js`));
   const judge = (id, verdict, note = null) => judgeQuest(db, saveId, id, verdict, note, { playerDir });
   return { db, saveId, playerDir, opts, put, judge };
 }

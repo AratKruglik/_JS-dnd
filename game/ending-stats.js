@@ -48,7 +48,9 @@ export function collectStats(db, saveId) {
   const minutes = Math.round(activeSeconds(allTimestamps(db, saveId)) / 60);
 
   const solves = db
-    .prepare('SELECT quest_id, solved_at, epoch, hints_used, complexity FROM quest_solves WHERE save_id = ? ORDER BY solved_at, id')
+    .prepare(
+      'SELECT quest_id, solved_at, epoch, hints_used, complexity FROM quest_solves WHERE save_id = ? ORDER BY solved_at, id',
+    )
     .all(saveId);
   let running = 0;
   const complexity = solves.map((s) => ({ at: s.solved_at, cumulative: (running += s.complexity) }));

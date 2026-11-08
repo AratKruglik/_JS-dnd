@@ -84,7 +84,7 @@ test('every quest plus the boss unlocks the ending, and a tamper reset locks it 
   pause(5);
   solveAll();
   assert.equal(endingStatus(db, saveId).unlocked, false);
-  db.prepare("UPDATE heroes SET level = 1 WHERE save_id = ?").run(saveId);
+  db.prepare('UPDATE heroes SET level = 1 WHERE save_id = ?').run(saveId);
   winBoss();
   assert.equal(endingStatus(db, saveId).unlocked, true);
 });
@@ -98,7 +98,10 @@ test('the boss fight is refused until every quest is solved, and only at tough',
     assert.throws(() => beginFight(db, saveId, { npcSlot: 'N7', tier, aggressor: 'hero' }), /tough/i);
   }
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM fights').get().n, 0);
-  assert.equal(beginFight(db, saveId, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: LOW }).enemy.tier, 'tough');
+  assert.equal(
+    beginFight(db, saveId, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: LOW }).enemy.tier,
+    'tough',
+  );
 });
 
 test('winning against the boss reports endingUnlocked, winning against anyone else does not', () => {

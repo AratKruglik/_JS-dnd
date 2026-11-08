@@ -35,11 +35,17 @@ const problem = (overrides = {}) => ({
 function inFight() {
   const db = freshDb();
   const saveId = createSave(db, {});
-  createHeroFromChoices(db, saveId, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue', scores: [8, 15, 14, 8, 8, 15] });
+  createHeroFromChoices(db, saveId, {
+    name: 'Bilbo',
+    race: 'hobbit',
+    heroClass: 'rogue',
+    scores: [8, 15, 14, 8, 8, 15],
+  });
   setSetting(db, saveId, SETTING);
   fillWorld(db, saveId, goodWorld());
   const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-moves-'));
-  const start = () => beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: script([15, 20], [10, 20]) });
+  const start = () =>
+    beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: script([15, 20], [10, 20]) });
   return { db, saveId, playerDir, start };
 }
 
@@ -48,7 +54,10 @@ test('proposing needs an open fight, a valid problem, and no other open move, an
   assert.throws(() => proposeMove(db, saveId, problem(), { playerDir }), /no fight/i);
   start();
   assert.throws(() => proposeMove(db, saveId, problem({ tests: TESTS.slice(0, 1) }), { playerDir }), /3 to 12/);
-  assert.throws(() => proposeMove(db, saveId, problem({ reference: 'export function solve() { return 0; }' }), { playerDir }), /reference/i);
+  assert.throws(
+    () => proposeMove(db, saveId, problem({ reference: 'export function solve() { return 0; }' }), { playerDir }),
+    /reference/i,
+  );
   assert.equal(count(db, 'fight_moves'), 0);
   assert.equal(existsSync(join(playerDir, 'move-1.js')), false);
   proposeMove(db, saveId, problem(), { playerDir });

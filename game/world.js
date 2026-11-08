@@ -29,7 +29,8 @@ function checkText(problems, label, value) {
     return;
   }
   const { hits } = lintVoice(value);
-  for (const hit of hits) problems.push(`${label} contains the banned phrase "${hit}". Rewrite it in the setting's voice.`);
+  for (const hit of hits)
+    problems.push(`${label} contains the banned phrase "${hit}". Rewrite it in the setting's voice.`);
 }
 
 export function setSetting(db, saveId, { source, name, description, voice }) {
@@ -123,9 +124,7 @@ export { worldStatus };
 
 // What the Master needs to recall the world's voice when a saved game is resumed.
 export function getSetting(db, saveId) {
-  const row = db
-    .prepare('SELECT source, name, description, voice FROM world_settings WHERE save_id = ?')
-    .get(saveId);
+  const row = db.prepare('SELECT source, name, description, voice FROM world_settings WHERE save_id = ?').get(saveId);
   return row ? { source: row.source, name: row.name, description: row.description, voice: row.voice } : null;
 }
 
@@ -167,7 +166,9 @@ export function look(db, saveId) {
 export function go(db, saveId, target) {
   const hero = requireReady(db, saveId);
   const here = skeletonLocation(hero.locationSlot);
-  const wanted = String(target ?? '').trim().toLowerCase();
+  const wanted = String(target ?? '')
+    .trim()
+    .toLowerCase();
   const exits = here.exits.map((slot) => locationRow(db, saveId, slot));
   const destination = wanted && exits.find((e) => e.slot.toLowerCase() === wanted || e.name.toLowerCase() === wanted);
   if (!destination) {
@@ -184,7 +185,13 @@ export function go(db, saveId, target) {
 // epoch and this one is not solved yet.
 export function talk(db, saveId, npcSlot) {
   const hero = requireReady(db, saveId);
-  const spot = SKELETON.npcs.find((n) => n.slot === String(npcSlot ?? '').trim().toUpperCase());
+  const spot = SKELETON.npcs.find(
+    (n) =>
+      n.slot ===
+      String(npcSlot ?? '')
+        .trim()
+        .toUpperCase(),
+  );
   if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
 
   requireAwake(db, saveId, spot.slot);

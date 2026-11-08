@@ -41,9 +41,16 @@ test('hours come from the union of every timestamp the game writes', () => {
   const db = freshDb();
   const saveId = createSave(db, {});
   const at = (m) => new Date(Date.UTC(2026, 10, 8, 10, m)).toISOString();
-  db.prepare("INSERT INTO dice_rolls (save_id, created_at, spec, results, total) VALUES (?, ?, '1d20', '[5]', 5)").run(saveId, at(0));
-  db.prepare("INSERT INTO honor_events (save_id, created_at, delta, kind, reason, honor_after) VALUES (?, ?, 1, 'x', 'y', 1)").run(saveId, at(10));
-  db.prepare("INSERT INTO quest_hints (save_id, quest_id, created_at, epoch, kind) VALUES (?, 'dice-roll', ?, 0, 'npc_speech')").run(saveId, at(20));
+  db.prepare("INSERT INTO dice_rolls (save_id, created_at, spec, results, total) VALUES (?, ?, '1d20', '[5]', 5)").run(
+    saveId,
+    at(0),
+  );
+  db.prepare(
+    "INSERT INTO honor_events (save_id, created_at, delta, kind, reason, honor_after) VALUES (?, ?, 1, 'x', 'y', 1)",
+  ).run(saveId, at(10));
+  db.prepare(
+    "INSERT INTO quest_hints (save_id, quest_id, created_at, epoch, kind) VALUES (?, 'dice-roll', ?, 0, 'npc_speech')",
+  ).run(saveId, at(20));
   db.prepare("INSERT INTO fights (save_id, started_at, trigger_reason) VALUES (?, ?, 'x')").run(saveId, at(55));
   const stats = collectStats(db, saveId);
   assert.equal(stats.minutes, 20);
@@ -89,11 +96,17 @@ test('stats after a real run: solves, a win, a fall, and the honor and complexit
   assert.deepEqual([stats.hero.name, stats.hero.race, stats.setting.name], ['Bilbo', 'halfling', 'Neon Harbor']);
   assert.deepEqual([stats.enemiesDefeated, stats.fights, stats.falls], [1, 1, 0]);
   assert.deepEqual([stats.tasks.solved, stats.tasks.total, stats.tasks.list.length], [3, 3, 3]);
-  assert.deepEqual(stats.tasks.list.map((t) => t.id), QUESTS.map((q) => q.id));
+  assert.deepEqual(
+    stats.tasks.list.map((t) => t.id),
+    QUESTS.map((q) => q.id),
+  );
   assert.equal(stats.tasks.list[0].title, QUESTS[0].title);
   assert.equal(stats.tasks.list[0].rung, QUESTS[0].rung);
   let running = 0;
-  assert.deepEqual(stats.complexity.map((c) => c.cumulative), QUESTS.map((q) => (running += q.complexity)));
+  assert.deepEqual(
+    stats.complexity.map((c) => c.cumulative),
+    QUESTS.map((q) => (running += q.complexity)),
+  );
   const honorTimes = stats.honor.map((h) => h.at);
   assert.deepEqual(honorTimes, [...honorTimes].sort());
   assert.equal(stats.honor.at(-1).honor, getHonor(db, saveId));

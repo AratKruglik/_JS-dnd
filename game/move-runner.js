@@ -24,7 +24,10 @@ const isText = (value) => typeof value === 'string' && value.trim().length > 0;
 // does not pass its own tests, so an unsolvable problem is never shown to the player.
 export function validateMoveProblem(problem, { timeoutMs = 5000 } = {}) {
   if (problem === null || typeof problem !== 'object' || Array.isArray(problem)) {
-    return { ok: false, errors: ['The problem must be an object with title, brief, difficulty, tests, and reference.'] };
+    return {
+      ok: false,
+      errors: ['The problem must be an object with title, brief, difficulty, tests, and reference.'],
+    };
   }
   const errors = [];
   if (!isText(problem.title)) errors.push('The problem needs a title.');
@@ -32,7 +35,8 @@ export function validateMoveProblem(problem, { timeoutMs = 5000 } = {}) {
   if (!Number.isInteger(problem.difficulty) || problem.difficulty < 1 || problem.difficulty > 5) {
     errors.push('difficulty must be a whole number from 1 to 5.');
   }
-  if (!isText(problem.reference)) errors.push('The problem needs a reference solution (source of a module exporting solve).');
+  if (!isText(problem.reference))
+    errors.push('The problem needs a reference solution (source of a module exporting solve).');
 
   const tests = problem.tests;
   if (!Array.isArray(tests) || tests.length < 3 || tests.length > 12) {
@@ -57,7 +61,10 @@ export function validateMoveProblem(problem, { timeoutMs = 5000 } = {}) {
     const result = runMoveTests(file, tests, { timeoutMs });
     if (result.status !== 'pass') {
       const detail = result.message || `${result.expected} but ${result.got}`;
-      return { ok: false, errors: [`The reference solution does not pass its own tests (${result.status}: ${detail}). Fix the problem.`] };
+      return {
+        ok: false,
+        errors: [`The reference solution does not pass its own tests (${result.status}: ${detail}). Fix the problem.`],
+      };
     }
     return { ok: true, errors: [] };
   } finally {

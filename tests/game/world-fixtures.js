@@ -10,7 +10,10 @@ export function goodWorld(prefix = '') {
   const locations = {};
   const npcs = {};
   ['L1', 'L2', 'L3', 'L4', 'L5', 'L6'].forEach((slot, i) => {
-    locations[slot] = { name: `${prefix}Place ${i + 1}`, description: `A dripping corner of the harbor, number ${i + 1}.` };
+    locations[slot] = {
+      name: `${prefix}Place ${i + 1}`,
+      description: `A dripping corner of the harbor, number ${i + 1}.`,
+    };
   });
   ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'].forEach((slot, i) => {
     npcs[slot] = {

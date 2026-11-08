@@ -32,7 +32,8 @@ export function buildEnding(db, saveId, { playerDir = defaultPlayerDir() } = {})
   const status = endingStatus(db, saveId);
   if (!status.unlocked) {
     const left = [];
-    if (status.questsSolved < status.questsTotal) left.push(`${status.questsTotal - status.questsSolved} quest(s) unsolved`);
+    if (status.questsSolved < status.questsTotal)
+      left.push(`${status.questsTotal - status.questsSolved} quest(s) unsolved`);
     if (!status.bossDefeated) left.push('the final boss still stands');
     throw new Error(`The road is not over yet: ${left.join(' and ')}.`);
   }

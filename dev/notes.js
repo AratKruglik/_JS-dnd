@@ -23,16 +23,15 @@ export function getState(db) {
   const tasks = db.prepare('SELECT * FROM tasks ORDER BY updated_at DESC, issue_number DESC').all();
   const lastCompleted =
     db.prepare("SELECT * FROM notes WHERE kind = 'completed' ORDER BY id DESC LIMIT 1").get() ?? null;
-  const predictions = db
-    .prepare("SELECT * FROM notes WHERE kind = 'prediction' ORDER BY id DESC LIMIT 5")
-    .all();
+  const predictions = db.prepare("SELECT * FROM notes WHERE kind = 'prediction' ORDER BY id DESC LIMIT 5").all();
   return { tasks, lastCompleted, predictions };
 }
 
 export function setMeta(db, key, value) {
-  db.prepare(
-    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
-  ).run(key, value);
+  db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value').run(
+    key,
+    value,
+  );
 }
 
 export function getMeta(db, key) {

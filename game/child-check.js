@@ -28,7 +28,10 @@ export function runChecked({ entry, args = [], input = '', timeoutMs }) {
   if (run.error?.code === 'ENOBUFS') return failure('error', 'Your code printed too much output.');
   if (run.error) return failure('error', oneLine(run.error.message));
 
-  const line = run.stdout.split('\n').reverse().find((l) => l.startsWith(`${token} `));
+  const line = run.stdout
+    .split('\n')
+    .reverse()
+    .find((l) => l.startsWith(`${token} `));
   if (!line) return failure('error', 'Your code stopped the program before the check could finish.');
 
   try {

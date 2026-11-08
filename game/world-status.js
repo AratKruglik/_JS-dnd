@@ -11,5 +11,13 @@ export function worldStatus(db, saveId) {
   if (!settingSet) missing.push('setting');
   if (locationsFilled < locationsTotal) missing.push('locations');
   if (npcsFilled < npcsTotal) missing.push('npcs');
-  return { settingSet, locationsFilled, locationsTotal, npcsFilled, npcsTotal, missing, complete: missing.length === 0 };
+  return {
+    settingSet,
+    locationsFilled,
+    locationsTotal,
+    npcsFilled,
+    npcsTotal,
+    missing,
+    complete: missing.length === 0,
+  };
 }

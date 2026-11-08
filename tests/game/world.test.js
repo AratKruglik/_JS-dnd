@@ -20,7 +20,10 @@ function goodWorld(prefix = '') {
   const locations = {};
   const npcs = {};
   ['L1', 'L2', 'L3', 'L4', 'L5', 'L6'].forEach((slot, i) => {
-    locations[slot] = { name: `${prefix}Place ${i + 1}`, description: `A dripping corner of the harbor, number ${i + 1}.` };
+    locations[slot] = {
+      name: `${prefix}Place ${i + 1}`,
+      description: `A dripping corner of the harbor, number ${i + 1}.`,
+    };
   });
   ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'].forEach((slot, i) => {
     npcs[slot] = {
@@ -49,7 +52,10 @@ test('setSetting rejects an unknown source, empty fields, and banned phrases', (
   for (const key of ['name', 'description', 'voice']) {
     assert.throws(() => setSetting(db, saveId, { ...SETTING, [key]: '  ' }), new RegExp(key, 'i'));
   }
-  assert.throws(() => setSetting(db, saveId, { ...SETTING, description: 'Great question, traveler.' }), /great question/i);
+  assert.throws(
+    () => setSetting(db, saveId, { ...SETTING, description: 'Great question, traveler.' }),
+    /great question/i,
+  );
   assert.equal(count(db, 'world_settings'), 0);
 });
 

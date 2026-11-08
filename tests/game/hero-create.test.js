@@ -43,7 +43,10 @@ test('a custom race stores its description and approved bonuses', () => {
 
 test('a custom race without a description or with over-cap bonuses is rejected and writes nothing', () => {
   const { db, saveId } = setup();
-  assert.throws(() => createHeroFromChoices(db, saveId, { ...base, race: 'Zorbian', bonuses: { INT: 2 } }), /description/i);
+  assert.throws(
+    () => createHeroFromChoices(db, saveId, { ...base, race: 'Zorbian', bonuses: { INT: 2 } }),
+    /description/i,
+  );
   assert.throws(
     () =>
       createHeroFromChoices(db, saveId, {
@@ -66,7 +69,11 @@ test('a standard race with supplied bonuses is rejected', () => {
 
 test('an invalid point buy writes nothing', () => {
   const { db, saveId } = setup();
-  for (const scores of [[15, 15, 15, 15, 8, 8], [8, 8, 8, 8, 8], [16, 8, 8, 8, 8, 8]]) {
+  for (const scores of [
+    [15, 15, 15, 15, 8, 8],
+    [8, 8, 8, 8, 8],
+    [16, 8, 8, 8, 8, 8],
+  ]) {
     assert.throws(() => createHeroFromChoices(db, saveId, { ...base, scores }), /points|exactly|whole number/i);
   }
   assert.equal(count(db, 'heroes'), 0);
@@ -112,7 +119,13 @@ test('a tamper reset returns abilities to 8 and 0 but keeps the race and the des
 test('hero create replaces the hero while onboarding is unfinished, so the player can start over', () => {
   const { db, saveId } = setup();
   createHeroFromChoices(db, saveId, base);
-  createHeroFromChoices(db, saveId, { ...base, name: 'Legolas', race: 'elf', heroClass: 'ranger', scores: [8, 15, 8, 8, 14, 8] });
+  createHeroFromChoices(db, saveId, {
+    ...base,
+    name: 'Legolas',
+    race: 'elf',
+    heroClass: 'ranger',
+    scores: [8, 15, 8, 8, 14, 8],
+  });
   const hero = getHero(db, saveId);
   assert.deepEqual([hero.name, hero.race, hero.heroClass], ['Legolas', 'elf', 'ranger']);
   assert.deepEqual(hero.abilities.DEX, { base: 15, traitAdjust: 2 });

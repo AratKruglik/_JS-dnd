@@ -63,7 +63,11 @@ test('a resets_at that is not within the next 6 hours (milliseconds by mistake, 
   for (const bad of [T0 + 3 * 60 * MIN, 1e308, secs(T0) + 7 * 3600]) {
     recordReading(db, saveId, { usedPercent: 99, resetsAt: bad }, T0);
     const s = currentStamina(db, saveId, T0 + MIN);
-    assert.deepEqual([s.estimated, s.collapsed, Number.isFinite(s.hours), s.hours <= 5], [true, false, true, true], String(bad));
+    assert.deepEqual(
+      [s.estimated, s.collapsed, Number.isFinite(s.hours), s.hours <= 5],
+      [true, false, true, true],
+      String(bad),
+    );
   }
 });
 
@@ -129,5 +133,8 @@ test('the estimate window turns over at exactly 5 hours', () => {
   assert.equal(Math.round(currentStamina(db, saveId, T0 + WINDOW_MS - 1).usedPercent), 100);
   assert.equal(currentStamina(db, saveId, T0 + WINDOW_MS).usedPercent, 0);
   touchWindow(db, saveId, T0 + WINDOW_MS);
-  assert.equal(db.prepare('SELECT window_started_at AS w FROM stamina WHERE save_id = ?').get(saveId).w, T0 + WINDOW_MS);
+  assert.equal(
+    db.prepare('SELECT window_started_at AS w FROM stamina WHERE save_id = ?').get(saveId).w,
+    T0 + WINDOW_MS,
+  );
 });

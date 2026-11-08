@@ -30,7 +30,9 @@ export function logFightStep(db, fightId, { actor, action, rollId = null, detail
 export function assertLegacyFight(db, fightId) {
   const fight = db.prepare('SELECT enemy_hp FROM fights WHERE id = ?').get(fightId);
   if (fight && fight.enemy_hp !== null) {
-    throw new Error(`Fight ${fightId} is a combat fight. Use fight attack or fight flee, not the low level fight commands.`);
+    throw new Error(
+      `Fight ${fightId} is a combat fight. Use fight attack or fight flee, not the low level fight commands.`,
+    );
   }
 }
 
@@ -43,7 +45,9 @@ export function endFight(db, fightId, outcome) {
 
 export function getFightLog(db, fightId) {
   return db
-    .prepare('SELECT seq, created_at, actor, action, roll_id, detail FROM fight_log WHERE fight_id = ? ORDER BY seq ASC')
+    .prepare(
+      'SELECT seq, created_at, actor, action, roll_id, detail FROM fight_log WHERE fight_id = ? ORDER BY seq ASC',
+    )
     .all(fightId)
     .map((r) => ({
       seq: r.seq,

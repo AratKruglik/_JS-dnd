@@ -4,6 +4,13 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{js,json}\"",
+    "format:check": "prettier --check \"**/*.{js,json}\""
+  },
+  "devDependencies": {
+    "eslint": "10.14.0",
+    "prettier": "3.9.10"
   }
 }

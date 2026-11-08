@@ -14,7 +14,9 @@ const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
 
 export function warnNpc(db, saveId, npcSlot, reason = null) {
-  const slot = String(npcSlot ?? '').trim().toUpperCase();
+  const slot = String(npcSlot ?? '')
+    .trim()
+    .toUpperCase();
   if (!SKELETON.npcs.some((n) => n.slot === slot)) throw new Error(`Unknown NPC "${npcSlot}".`);
   requireAwake(db, saveId, slot);
   return inTransaction(db, () => {
@@ -29,7 +31,9 @@ export function warnNpc(db, saveId, npcSlot, reason = null) {
 
 export const openFight = (db, saveId) =>
   db
-    .prepare('SELECT * FROM fights WHERE save_id = ? AND ended_at IS NULL AND enemy_hp IS NOT NULL ORDER BY id DESC LIMIT 1')
+    .prepare(
+      'SELECT * FROM fights WHERE save_id = ? AND ended_at IS NULL AND enemy_hp IS NOT NULL ORDER BY id DESC LIMIT 1',
+    )
     .get(saveId);
 
 function stateOf(db, fightId, extras = {}) {
@@ -55,7 +59,7 @@ function enemyTurn(db, saveId, fight, hero, rng, modifiers) {
   const tier = ENEMY_TIERS[fight.enemy_tier];
   const { ac } = heroStats(hero, modifiers);
   const attack = attackRoll(db, saveId, tier.attack, ac, rng, `${fight.enemy_name} attack`);
-  let detail = `${fight.enemy_name} misses (${attack.total} vs AC ${ac})`;
+  const detail = `${fight.enemy_name} misses (${attack.total} vs AC ${ac})`;
   let heroHp = fight.hero_hp;
   logFightStep(db, fight.id, { actor: 'enemy', action: 'attack', rollId: attack.rollId, detail });
   if (attack.hit) {
@@ -87,18 +91,23 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
   if (!hero) throw new Error('No hero yet. Create one first.');
   const status = worldStatus(db, saveId);
   if (!status.complete) throw new Error(`The world is not ready yet (missing: ${status.missing.join(', ')}).`);
-  if (!Object.hasOwn(ENEMY_TIERS, tier)) throw new Error(`Unknown tier "${tier}". Use one of: ${Object.keys(ENEMY_TIERS).join(', ')}.`);
-  if (aggressor !== 'hero' && aggressor !== 'npc') throw new Error(`Aggressor must be "hero" or "npc", got "${aggressor}".`);
+  if (!Object.hasOwn(ENEMY_TIERS, tier))
+    throw new Error(`Unknown tier "${tier}". Use one of: ${Object.keys(ENEMY_TIERS).join(', ')}.`);
+  if (aggressor !== 'hero' && aggressor !== 'npc')
+    throw new Error(`Aggressor must be "hero" or "npc", got "${aggressor}".`);
   if (questId !== null && !getQuest(questId)) throw new Error(`Unknown quest "${questId}".`);
 
-  const slot = String(npcSlot ?? '').trim().toUpperCase();
+  const slot = String(npcSlot ?? '')
+    .trim()
+    .toUpperCase();
   const spot = SKELETON.npcs.find((n) => n.slot === slot);
   if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
   if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
   requireAwake(db, saveId, slot);
   if (slot === BOSS_SLOT) {
     const { remaining } = getProgress(db, saveId);
-    if (remaining.length) throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
+    if (remaining.length)
+      throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
     if (tier !== 'tough') throw new Error('The final boss is always tough.');
   }
 
@@ -106,7 +115,9 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
     const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
     const given = row?.count ?? 0;
     if (given <= WARNINGS_BEFORE_FIGHT) {
-      throw new Error(`${slot} has only given ${given} warning(s). They need ${WARNINGS_BEFORE_FIGHT + 1} before starting a fight.`);
+      throw new Error(
+        `${slot} has only given ${given} warning(s). They need ${WARNINGS_BEFORE_FIGHT + 1} before starting a fight.`,
+      );
     }
   }
 
@@ -114,7 +125,9 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
     const npc = db.prepare('SELECT name FROM world_npcs WHERE save_id = ? AND slot = ?').get(saveId, slot);
     const stats = heroStats(hero);
     const enemy = ENEMY_TIERS[tier];
-    const fightId = startFight(db, saveId, { triggerReason: `${aggressor === 'hero' ? 'hero attacked' : 'provoked'} ${npc.name}` });
+    const fightId = startFight(db, saveId, {
+      triggerReason: `${aggressor === 'hero' ? 'hero attacked' : 'provoked'} ${npc.name}`,
+    });
     db.prepare(
       `UPDATE fights SET aggressor = ?, npc_slot = ?, quest_id = ?, enemy_name = ?, enemy_tier = ?, enemy_hp = ?,
          enemy_hp_max = ?, enemy_ac = ?, hero_hp = ?, hero_hp_max = ? WHERE id = ?`,
@@ -153,7 +166,9 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
       actor: 'hero',
       action: 'attack',
       rollId: attack.rollId,
-      detail: hit ? `hit (${attack.total} vs AC ${fight.enemy_ac})${sureHit ? ', sure hit' : ''}` : `miss (${attack.total} vs AC ${fight.enemy_ac})`,
+      detail: hit
+        ? `hit (${attack.total} vs AC ${fight.enemy_ac})${sureHit ? ', sure hit' : ''}`
+        : `miss (${attack.total} vs AC ${fight.enemy_ac})`,
     });
     if (hit) {
       const dmg = damageRoll(db, saveId, 8, stats.damageMod, attack.crit, rng, 'hero damage');

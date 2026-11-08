@@ -15,7 +15,8 @@ const BANDS = [
 ];
 
 const clampPercent = (value) => {
-  const n = typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : Number.NaN;
+  const n =
+    typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : Number.NaN;
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
 };
 
@@ -55,7 +56,9 @@ export function renderBar({ usedPercent, resetsAt, estimated }, nowMs, width = 1
   const filled = Math.round((left / 100) * width);
   const bar = `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`;
   const reset = `resets in ${untilReset(resetsAt, nowMs)}`;
-  const line = estimated ? `STAMINA ~${bar} ~${left}% left (est.) | ${reset}` : `STAMINA ${bar} ${left}% left | ${reset}`;
+  const line = estimated
+    ? `STAMINA ~${bar} ~${left}% left (est.) | ${reset}`
+    : `STAMINA ${bar} ${left}% left | ${reset}`;
   return color ? `\u001b[${ANSI[barColor(usedPercent)]}m${line}\u001b[0m` : line;
 }
 
@@ -88,7 +91,7 @@ export function touchWindow(db, saveId, nowMs = Date.now()) {
 export function currentStamina(db, saveId, nowMs = Date.now()) {
   const row = db.prepare('SELECT * FROM stamina WHERE save_id = ?').get(saveId);
   const usable =
-    row?.used_percent != null &&
+    typeof row?.used_percent === 'number' &&
     row.read_at <= nowMs &&
     row.resets_at * 1000 > nowMs &&
     row.resets_at * 1000 <= nowMs + MAX_RESET_AHEAD_MS;
@@ -98,7 +101,10 @@ export function currentStamina(db, saveId, nowMs = Date.now()) {
   if (usable) {
     ({ used_percent: usedPercent, resets_at: resetsAt } = row);
   } else {
-    const started = row?.window_started_at != null && nowMs - row.window_started_at < WINDOW_MS ? row.window_started_at : nowMs;
+    const started =
+      typeof row?.window_started_at === 'number' && nowMs - row.window_started_at < WINDOW_MS
+        ? row.window_started_at
+        : nowMs;
     usedPercent = ((nowMs - started) / WINDOW_MS) * 100;
     resetsAt = Math.floor((started + WINDOW_MS) / 1000);
   }

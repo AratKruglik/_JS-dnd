@@ -31,7 +31,12 @@ export function lineChart(points, { width = 640, height = 220, yMin, yMax, label
 
   let path = '';
   pts.forEach((p, i) => {
-    path += i === 0 ? `M${fmt(sx(p.x))} ${fmt(sy(p.y))}` : step ? ` L${fmt(sx(p.x))} ${fmt(sy(pts[i - 1].y))} L${fmt(sx(p.x))} ${fmt(sy(p.y))}` : ` L${fmt(sx(p.x))} ${fmt(sy(p.y))}`;
+    path +=
+      i === 0
+        ? `M${fmt(sx(p.x))} ${fmt(sy(p.y))}`
+        : step
+          ? ` L${fmt(sx(p.x))} ${fmt(sy(pts[i - 1].y))} L${fmt(sx(p.x))} ${fmt(sy(p.y))}`
+          : ` L${fmt(sx(p.x))} ${fmt(sy(p.y))}`;
   });
 
   const grid = [lo, (lo + hi) / 2, hi]
@@ -49,7 +54,10 @@ export function lineChart(points, { width = 640, height = 220, yMin, yMax, label
     .join('');
   const dots = pts
     .slice(-300)
-    .map((p) => `<circle cx="${fmt(sx(p.x))}" cy="${fmt(sy(p.y))}" r="3" class="dot"><title>${escapeHtml(p.note ?? fmt(p.y))}</title></circle>`)
+    .map(
+      (p) =>
+        `<circle cx="${fmt(sx(p.x))}" cy="${fmt(sy(p.y))}" r="3" class="dot"><title>${escapeHtml(p.note ?? fmt(p.y))}</title></circle>`,
+    )
     .join('');
   return `${open}${grid}${lines}<path d="${path}" class="line" fill="none"/>${dots}</svg>`;
 }
@@ -90,8 +98,14 @@ export function renderPage(stats) {
   const parse = (iso) => Date.parse(iso);
 
   const honorPoints = stats.honor.map((h) => ({ x: parse(h.at), y: h.honor, note: `${h.honor}: ${h.reason}` }));
-  const falls = stats.honor.filter((h) => h.kind === 'reset').map((h) => ({ x: parse(h.at), label: 'A fall: the dice were tampered with' }));
-  const complexityPoints = stats.complexity.map((c) => ({ x: parse(c.at), y: c.cumulative, note: `${c.cumulative} total` }));
+  const falls = stats.honor
+    .filter((h) => h.kind === 'reset')
+    .map((h) => ({ x: parse(h.at), label: 'A fall: the dice were tampered with' }));
+  const complexityPoints = stats.complexity.map((c) => ({
+    x: parse(c.at),
+    y: c.cumulative,
+    note: `${c.cumulative} total`,
+  }));
 
   const rows = stats.tasks.list
     .map(

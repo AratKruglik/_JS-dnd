@@ -47,8 +47,7 @@ test('defaultGameDbPath does not depend on the current directory', () => {
 
 test('inTransaction nests: a failure in the outer block undoes a committed inner block', () => {
   const db = openGameDb(tmpFile());
-  const insertSave = () =>
-    inTransaction(db, () => db.prepare("INSERT INTO saves (created_at) VALUES ('now')").run());
+  const insertSave = () => inTransaction(db, () => db.prepare("INSERT INTO saves (created_at) VALUES ('now')").run());
   assert.throws(
     () =>
       inTransaction(db, () => {
@@ -65,7 +64,10 @@ test('inTransaction nests: a failure in the outer block undoes a committed inner
 test('heroes, honor_events, dice_rolls, fights, and resets all have a save_id column', () => {
   const db = openGameDb(tmpFile());
   for (const table of ['heroes', 'honor_events', 'dice_rolls', 'fights', 'resets']) {
-    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    const columns = db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((c) => c.name);
     assert.ok(columns.includes('save_id'), `${table} is missing save_id`);
   }
 });
@@ -79,8 +81,7 @@ test('inTransaction nests even when db.isTransaction is unavailable (older Node)
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
-  const insertSave = () =>
-    inTransaction(db, () => db.prepare("INSERT INTO saves (created_at) VALUES ('now')").run());
+  const insertSave = () => inTransaction(db, () => db.prepare("INSERT INTO saves (created_at) VALUES ('now')").run());
   assert.throws(
     () =>
       inTransaction(db, () => {

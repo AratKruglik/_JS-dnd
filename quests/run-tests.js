@@ -11,7 +11,10 @@ const stdin = readFileSync(0, 'utf8');
 const cut = stdin.indexOf('\n');
 const token = stdin.slice(0, cut);
 
-const firstLine = (error) => String(error?.message ?? error).split('\n')[0].trim();
+const firstLine = (error) =>
+  String(error?.message ?? error)
+    .split('\n')[0]
+    .trim();
 const show = (value) => (value === undefined ? 'undefined' : JSON.stringify(value));
 const call = (args) => `solve(${args.map(show).join(', ')})`;
 
@@ -42,7 +45,11 @@ try {
           break;
         }
         if (!isDeepStrictEqual(got, expected)) {
-          outcome = { status: 'fail', expected: `${call(args)} gives ${show(expected)}`, got: `${call(args)} gave ${show(got)}` };
+          outcome = {
+            status: 'fail',
+            expected: `${call(args)} gives ${show(expected)}`,
+            got: `${call(args)} gave ${show(got)}`,
+          };
           break;
         }
       }

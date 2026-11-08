@@ -21,8 +21,7 @@ function requireQuest(questId) {
 }
 
 // A tamper reset starts a new epoch: solves and hints from earlier epochs no longer count.
-const epochOf = (db, saveId) =>
-  db.prepare('SELECT COUNT(*) AS n FROM resets WHERE save_id = ?').get(saveId).n;
+const epochOf = (db, saveId) => db.prepare('SELECT COUNT(*) AS n FROM resets WHERE save_id = ?').get(saveId).n;
 
 // Fingerprint of the player's file, or null when it cannot be read.
 function fileHash(path) {
@@ -70,7 +69,8 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
 
 // Step 2. The Master reads the file and reports a verdict; this records it and moves honor.
 export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDir = defaultPlayerDir() } = {}) {
-  if (verdict !== 'clean' && verdict !== 'cheated') throw new Error(`Verdict must be clean or cheated, got "${verdict}".`);
+  if (verdict !== 'clean' && verdict !== 'cheated')
+    throw new Error(`Verdict must be clean or cheated, got "${verdict}".`);
   const quest = requireQuest(questId);
 
   return inTransaction(db, () => {
@@ -84,7 +84,11 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       throw new Error(`The latest attempt for "${quest.id}" is already judged.`);
     }
     const epoch = epochOf(db, saveId);
-    if (db.prepare('SELECT 1 FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?').get(saveId, quest.id, epoch)) {
+    if (
+      db
+        .prepare('SELECT 1 FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+        .get(saveId, quest.id, epoch)
+    ) {
       throw new Error(`Quest "${quest.id}" is already solved.`);
     }
     // Attempts from before migration 3 have no fingerprint and are not checked.
@@ -106,7 +110,12 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
     db.prepare(
       'INSERT INTO quest_solves (save_id, quest_id, attempt_id, solved_at, epoch, hints_used, complexity) VALUES (?, ?, ?, ?, ?, ?, ?)',
     ).run(saveId, quest.id, attempt.id, now(), epoch, hints, quest.complexity);
-    const honor = applyHonorRule(db, saveId, hints === 0 ? 'clean_solve_no_hints' : 'clean_solve', `solved ${quest.id}`);
+    const honor = applyHonorRule(
+      db,
+      saveId,
+      hints === 0 ? 'clean_solve_no_hints' : 'clean_solve',
+      `solved ${quest.id}`,
+    );
     return { solved: true, honor };
   });
 }
@@ -116,14 +125,9 @@ export function logHint(db, saveId, questId, kind, note = null) {
   const quest = requireQuest(questId);
   return inTransaction(db, () => {
     const epoch = epochOf(db, saveId);
-    db.prepare('INSERT INTO quest_hints (save_id, quest_id, created_at, epoch, kind, note) VALUES (?, ?, ?, ?, ?, ?)').run(
-      saveId,
-      quest.id,
-      now(),
-      epoch,
-      kind,
-      note,
-    );
+    db.prepare(
+      'INSERT INTO quest_hints (save_id, quest_id, created_at, epoch, kind, note) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(saveId, quest.id, now(), epoch, kind, note);
     if (kind === 'illegal_doc') applyHonorRule(db, saveId, 'illegal_link', note ?? `illegal link on ${quest.id}`);
     if (kind === 'master_leak') applyHonorRule(db, saveId, 'master_leak', note ?? `leak trick on ${quest.id}`);
     return { hintsUsed: hintsUsed(db, saveId, quest.id, epoch) };

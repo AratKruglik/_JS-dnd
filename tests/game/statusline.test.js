@@ -25,16 +25,26 @@ function runBar(input, { withSave = true, withDb = true } = {}) {
     if (withSave) createSave(db, {});
   }
   const started = Date.now();
-  const result = spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input, encoding: 'utf8' });
+  const result = spawnSync('node', [script], {
+    env: { ...process.env, JSDND_GAME_DB: dbPath },
+    input,
+    encoding: 'utf8',
+  });
   return { result, db, dbPath, ms: Date.now() - started };
 }
 
 const ESC = String.fromCharCode(27);
-const stripColor = (text) => text.split(`${ESC}[0m`).join('').replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '');
+const stripColor = (text) =>
+  text
+    .split(`${ESC}[0m`)
+    .join('')
+    .replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '');
 const oneLine = (result) => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^[^\n]+\n$/);
-  assert.ok(!result.stdout.includes(String.fromCharCode(0x2013)) && !result.stdout.includes(String.fromCharCode(0x2014)));
+  assert.ok(
+    !result.stdout.includes(String.fromCharCode(0x2013)) && !result.stdout.includes(String.fromCharCode(0x2014)),
+  );
   return stripColor(result.stdout.trim());
 };
 
@@ -47,7 +57,13 @@ test('a good payload is stored for the save and drawn as the bar, quickly', () =
 });
 
 test('empty stdin, junk, and a payload without the five hour window still print one line', () => {
-  for (const input of ['', 'not json', '{"rate_limits":{"seven_day":{"used_percentage":5,"resets_at":1}}}', 'null', '[]']) {
+  for (const input of [
+    '',
+    'not json',
+    '{"rate_limits":{"seven_day":{"used_percentage":5,"resets_at":1}}}',
+    'null',
+    '[]',
+  ]) {
     const { result, db } = runBar(input);
     assert.match(oneLine(result), /^STAMINA ~\[/, JSON.stringify(input));
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM stamina WHERE used_percent IS NOT NULL').get().n, 0);
@@ -74,7 +90,11 @@ test('a locked database does not hang or break the bar', () => {
   createSave(db, {});
   db.exec('BEGIN IMMEDIATE');
   const started = Date.now();
-  const result = spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input: JSON.stringify(payload()), encoding: 'utf8' });
+  const result = spawnSync('node', [script], {
+    env: { ...process.env, JSDND_GAME_DB: dbPath },
+    input: JSON.stringify(payload()),
+    encoding: 'utf8',
+  });
   db.exec('ROLLBACK');
   assert.match(oneLine(result), /62% left/);
   assert.ok(Date.now() - started < 3000);
@@ -94,8 +114,18 @@ test('the bar writes to the first save, the one the CLI plays', () => {
   const db = openGameDb(dbPath);
   const first = createSave(db, {});
   const second = createSave(db, {});
-  spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input: JSON.stringify(payload()), encoding: 'utf8' });
-  assert.deepEqual(db.prepare('SELECT save_id AS s FROM stamina').all().map((r) => r.s), [first]);
+  spawnSync('node', [script], {
+    env: { ...process.env, JSDND_GAME_DB: dbPath },
+    input: JSON.stringify(payload()),
+    encoding: 'utf8',
+  });
+  assert.deepEqual(
+    db
+      .prepare('SELECT save_id AS s FROM stamina')
+      .all()
+      .map((r) => r.s),
+    [first],
+  );
   assert.notEqual(first, second);
 });
 
@@ -121,7 +151,11 @@ test('an older database is neither migrated nor waited on by the bar', () => {
   db.exec('DELETE FROM schema_migrations WHERE version = 9');
   db.exec('BEGIN IMMEDIATE');
   const started = Date.now();
-  const result = spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input: JSON.stringify(payload()), encoding: 'utf8' });
+  const result = spawnSync('node', [script], {
+    env: { ...process.env, JSDND_GAME_DB: dbPath },
+    input: JSON.stringify(payload()),
+    encoding: 'utf8',
+  });
   db.exec('ROLLBACK');
   assert.match(oneLine(result), /62% left/);
   assert.ok(Date.now() - started < 2500, 'the bar waited on the lock');

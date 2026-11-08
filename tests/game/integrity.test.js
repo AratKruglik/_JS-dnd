@@ -77,7 +77,9 @@ test('applyTamperReset sets level 1, abilities 8 with no trait adjust, and honor
   const { db, saveId } = heroSetup();
   const hero = getHero(db, saveId);
   db.prepare('UPDATE heroes SET level = 5 WHERE id = ?').run(hero.id);
-  db.prepare("UPDATE hero_abilities SET base = 14, trait_adjust = 2 WHERE hero_id = ? AND ability = 'STR'").run(hero.id);
+  db.prepare("UPDATE hero_abilities SET base = 14, trait_adjust = 2 WHERE hero_id = ? AND ability = 'STR'").run(
+    hero.id,
+  );
   addHonorEvent(db, saveId, { delta: 40, kind: 'help', reason: 'good deed' });
 
   assert.deepEqual(applyTamperReset(db, saveId, { expected: 'aaa', found: 'bbb' }), { applied: true });
