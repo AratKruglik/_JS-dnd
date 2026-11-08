@@ -36,7 +36,7 @@ export function proposeMove(db, saveId, problem, { playerDir = defaultPlayerDir(
 
 // Runs the player's solve() against the hidden tests. A pass is a sure hit with double damage;
 // anything else (wrong, error, timeout, missing file) loses the turn.
-export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), timeoutMs, rng } = {}) {
+export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), timeoutMs, rng, modifiers } = {}) {
   const fight = openFight(db, saveId);
   if (!fight) throw new Error('No fight in progress.');
   const move = db.prepare('SELECT * FROM fight_moves WHERE id = ? AND fight_id = ?').get(moveId, fight.id);
@@ -48,8 +48,8 @@ export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), 
   return inTransaction(db, () => {
     db.prepare('UPDATE fight_moves SET status = ? WHERE id = ?').run(won ? 'won' : 'failed', moveId);
     const state = won
-      ? heroAttack(db, saveId, { sureHit: true, doubleDamage: true, rng })
-      : loseHeroTurn(db, saveId, { rng });
+      ? heroAttack(db, saveId, { sureHit: true, doubleDamage: true, rng, modifiers })
+      : loseHeroTurn(db, saveId, { rng, modifiers });
     return { moveStatus: won ? 'won' : 'failed', check, fight: state };
   });
 }

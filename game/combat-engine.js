@@ -49,10 +49,11 @@ export function getFightState(db, saveId) {
 }
 
 // Only the enemy's answer to the hero's turn. Returns true when the hero is knocked out.
-function enemyTurn(db, saveId, fight, hero, rng) {
+function enemyTurn(db, saveId, fight, hero, rng, modifiers) {
   const tier = ENEMY_TIERS[fight.enemy_tier];
-  const attack = attackRoll(db, saveId, tier.attack, heroStats(hero).ac, rng, `${fight.enemy_name} attack`);
-  let detail = `${fight.enemy_name} misses (${attack.total} vs AC ${heroStats(hero).ac})`;
+  const { ac } = heroStats(hero, modifiers);
+  const attack = attackRoll(db, saveId, tier.attack, ac, rng, `${fight.enemy_name} attack`);
+  let detail = `${fight.enemy_name} misses (${attack.total} vs AC ${ac})`;
   let heroHp = fight.hero_hp;
   logFightStep(db, fight.id, { actor: 'enemy', action: 'attack', rollId: attack.rollId, detail });
   if (attack.hit) {
@@ -79,7 +80,7 @@ function finishLoss(db, fight) {
   db.prepare('UPDATE heroes SET location_slot = ? WHERE save_id = ?').run(SKELETON.start, fight.save_id);
 }
 
-export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = null, rng } = {}) {
+export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = null, rng, modifiers } = {}) {
   const hero = getHero(db, saveId);
   if (!hero) throw new Error('No hero yet. Create one first.');
   const status = worldStatus(db, saveId);
@@ -125,17 +126,17 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
 
     if (!heroGoesFirst) {
       const fight = db.prepare('SELECT * FROM fights WHERE id = ?').get(fightId);
-      if (enemyTurn(db, saveId, fight, hero, rng)) finishLoss(db, fight);
+      if (enemyTurn(db, saveId, fight, hero, rng, modifiers)) finishLoss(db, fight);
     }
     return stateOf(db, fightId);
   });
 }
 
-export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = false } = {}) {
+export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = false, modifiers } = {}) {
   const fight = openFight(db, saveId);
   if (!fight) throw new Error('No fight in progress.');
   const hero = getHero(db, saveId);
-  const stats = heroStats(hero);
+  const stats = heroStats(hero, modifiers);
 
   return inTransaction(db, () => {
     let enemyHp = fight.enemy_hp;
@@ -169,14 +170,14 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
       return stateOf(db, fight.id, { honor });
     }
 
-    return enemyResponds(db, saveId, fight.id, hero, rng);
+    return enemyResponds(db, saveId, fight.id, hero, rng, modifiers);
   });
 }
 
 // The enemy's answer after the hero's turn: either the hero is knocked out, or a new round starts.
-function enemyResponds(db, saveId, fightId, hero, rng) {
+function enemyResponds(db, saveId, fightId, hero, rng, modifiers) {
   const current = db.prepare('SELECT * FROM fights WHERE id = ?').get(fightId);
-  if (enemyTurn(db, saveId, current, hero, rng)) {
+  if (enemyTurn(db, saveId, current, hero, rng, modifiers)) {
     finishLoss(db, current);
   } else {
     db.prepare('UPDATE fights SET round = round + 1 WHERE id = ?').run(fightId);
@@ -185,13 +186,13 @@ function enemyResponds(db, saveId, fightId, hero, rng) {
 }
 
 // A failed advanced move: the hero does nothing this turn, the enemy still acts.
-export function loseHeroTurn(db, saveId, { rng } = {}) {
+export function loseHeroTurn(db, saveId, { rng, modifiers } = {}) {
   const fight = openFight(db, saveId);
   if (!fight) throw new Error('No fight in progress.');
   const hero = getHero(db, saveId);
   return inTransaction(db, () => {
     logFightStep(db, fight.id, { actor: 'hero', action: 'move', detail: 'the move fails and the turn is lost' });
-    return enemyResponds(db, saveId, fight.id, hero, rng);
+    return enemyResponds(db, saveId, fight.id, hero, rng, modifiers);
   });
 }
 

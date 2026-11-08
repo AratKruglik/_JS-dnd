@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from '../../game/combat-engine.js';
+import { warnNpc, beginFight, heroAttack, fleeFight, getFightState, loseHeroTurn } from '../../game/combat-engine.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld, look, go, talk } from '../../game/world.js';
 import { getFightLog } from '../../game/fights.js';
@@ -189,4 +189,48 @@ test('warnings reset when a fight ends, win, loss, or flee', () => {
   beginFight(win.db, win.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() });
   heroAttack(win.db, win.saveId, { rng: script([15, 20], [5, 8]) });
   assert.equal(win.db.prepare('SELECT COUNT(*) AS n FROM npc_warnings').get().n, 0);
+});
+
+test('an attack modifier turns a barely-hitting swing into a miss, and a natural 20 still hits', () => {
+  const plain = ready();
+  beginFight(plain.db, plain.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  assert.equal(heroAttack(plain.db, plain.saveId, { rng: script([7, 20], [5, 8], [2, 20]) }).enemy.hp, 14 - 8);
+
+  const tired = ready();
+  beginFight(tired.db, tired.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const missed = heroAttack(tired.db, tired.saveId, { rng: script([7, 20], [2, 20]), modifiers: { attack: -2 } });
+  assert.equal(missed.enemy.hp, 14);
+
+  const crit = ready();
+  beginFight(crit.db, crit.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const lucky = heroAttack(crit.db, crit.saveId, { rng: script([20, 20], [4, 8], [4, 8], [2, 20]), modifiers: { attack: -10 } });
+  assert.ok(lucky.enemy.hp < 14);
+});
+
+test('an AC modifier lets an enemy swing that missed by exactly 3 land, and never touches the enemy', () => {
+  const plain = ready();
+  beginFight(plain.db, plain.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  assert.equal(heroAttack(plain.db, plain.saveId, { rng: script([3, 20], [7, 20]) }).hero.hp, 12);
+
+  const tired = ready();
+  beginFight(tired.db, tired.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const state = heroAttack(tired.db, tired.saveId, { rng: script([3, 20], [7, 20], [3, 6]), modifiers: { ac: -3 } });
+  assert.deepEqual([state.hero.hp, state.enemy.ac, state.enemy.hpMax], [9, 12, 14]);
+});
+
+test('beginFight and loseHeroTurn use the modifiers for the enemy first turn too', () => {
+  const first = ready();
+  const begun = beginFight(first.db, first.saveId, {
+    npcSlot: 'N1',
+    tier: 'normal',
+    aggressor: 'hero',
+    rng: script([2, 20], [15, 20], [7, 20], [3, 6]),
+    modifiers: { ac: -3 },
+  });
+  assert.equal(begun.hero.hp, 9);
+
+  const lost = ready();
+  beginFight(lost.db, lost.saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const after = loseHeroTurn(lost.db, lost.saveId, { rng: script([7, 20], [3, 6]), modifiers: { ac: -3 } });
+  assert.equal(after.hero.hp, 9);
 });

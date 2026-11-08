@@ -107,3 +107,12 @@ test('a move can be checked only once and only inside its fight', () => {
   assert.throws(() => checkMove(db, saveId, moveId, { playerDir }), /already|not open/i);
   assert.throws(() => checkMove(db, saveId, 999, { playerDir }), /no move|not found/i);
 });
+
+test('checkMove passes tiredness modifiers to the enemy answer', () => {
+  const { db, saveId, playerDir, start } = inFight();
+  start();
+  const { moveId, file } = proposeMove(db, saveId, problem(), { playerDir });
+  writeFileSync(file, 'export function solve(a, b) { return a - b; }');
+  const result = checkMove(db, saveId, moveId, { playerDir, rng: script([7, 20], [3, 6]), modifiers: { ac: -3 } });
+  assert.equal(result.fight.hero.hp, 9);
+});
