@@ -5,11 +5,11 @@ import { QUESTS } from '../../quests/index.js';
 
 const bySlot = Object.fromEntries(SKELETON.locations.map((l) => [l.slot, l]));
 
-test('six locations and six npcs with unique slots, and the start is L1', () => {
+test('six locations and seven npcs with unique slots, and the start is L1', () => {
   assert.equal(SKELETON.locations.length, 6);
-  assert.equal(SKELETON.npcs.length, 6);
+  assert.equal(SKELETON.npcs.length, 7);
   assert.equal(new Set(SKELETON.locations.map((l) => l.slot)).size, 6);
-  assert.equal(new Set(SKELETON.npcs.map((n) => n.slot)).size, 6);
+  assert.equal(new Set(SKELETON.npcs.map((n) => n.slot)).size, 7);
   assert.equal(SKELETON.start, 'L1');
   assert.ok(bySlot.L1);
 });
@@ -46,4 +46,10 @@ test('every npc stands in a real location and quest holders follow the registry 
   const holders = SKELETON.npcs.filter((n) => n.questId).map((n) => n.questId);
   assert.deepEqual(holders, QUESTS.map((q) => q.id));
   for (const id of holders) assert.ok(QUESTS.some((q) => q.id === id));
+});
+
+test('N7 is the final boss at the stronghold, holds no quest, and shares L6 with the captain', () => {
+  const boss = SKELETON.npcs.find((n) => n.slot === 'N7');
+  assert.deepEqual(boss, { slot: 'N7', location: 'L6', role: 'boss' });
+  assert.deepEqual(SKELETON.npcs.filter((n) => n.location === 'L6').map((n) => n.slot), ['N6', 'N7']);
 });

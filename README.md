@@ -63,7 +63,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Gentle review or roasting by honor level      | 3     | Done    | Starts only after step 1 passes. Roasting below honor 0, gentle at 0 and above.                                                                                                                 |
 | Curriculum from strings to async              | 3     | In progress | Three rung 1 starter quests exist. The rest is content for later. Ordering is a guess for now.                                                                                                                     |
 | Hero creation with race, class, and point buy | 4     | Done    | 5e point buy (27 points) plus race bonuses, checked against public 5e sources. Custom race or class allowed with a description.                                                                                                     |
-| Setting choice and world generation           | 4     | Done    | A fixed skeleton of 6 locations and 6 NPCs lives in the repo. The Master only fills in names, descriptions, and voices.                                                                                                          |
+| Setting choice and world generation           | 4     | Done    | A fixed skeleton of 6 locations and 7 NPCs (one is the final boss) lives in the repo. The Master only fills in names, descriptions, and voices.                                                                                                          |
 | Master voice per setting                      | 4     | In progress | A banned AI-speak list is enforced when the Master saves the world. Whether the writing actually sounds right can only be judged by playing.                                                                                           |
 | Choice-prompt play UI                         | 4     | Done    | The /play command drives Claude choice prompts. Every location has 4 exits or fewer, so no paging is needed. Claude specific.                                                                   |
 | D&D combat                                    | 5     | Done    | A simple D&D core: initiative, HP, AC, attack and damage rolled by script. NPCs warn twice before they fight (warnings clear when a fight ends), quest fights need no warning, a beaten NPC is knocked out until you solve another quest, and defeat means waking at the start.                                                                                                |
@@ -129,7 +129,7 @@ Don't edit `game/dice.js`. The game fingerprints it, and a changed or missing di
 | `game/`                   | The game's data layer: DB, dice, honor, fights, tamper check, and the script CLI |
 | `data/`                   | The local game DB (gitignored, created by `setup.sh`)                            |
 | `quests/`                 | The fixed quests: briefs, starter stubs, and checks                              |
-| `world/` | The fixed world skeleton: 6 locations, 6 NPCs, and how they connect |
+| `world/` | The fixed world skeleton: 6 locations, 7 NPCs, and how they connect |
 | `.claude/commands/` | `/play`: the Dungeon Master instructions |
 | `player/`                 | Your quest solutions (gitignored, created when you start a quest)                |
 | `dev/`                    | Dev tooling: notes DB, CLI, board reader, session start hook                     |

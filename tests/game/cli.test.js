@@ -372,11 +372,11 @@ test('world setting, skeleton, fill, and status round trip until complete', () =
   assert.deepEqual(run('world', 'status').json.missing, ['setting', 'locations', 'npcs']);
   const skeleton = run('world', 'skeleton').json;
   assert.equal(skeleton.locations.length, 6);
-  assert.equal(skeleton.npcs.length, 6);
+  assert.equal(skeleton.npcs.length, 7);
   assert.equal(skeleton.start, 'L1');
   assert.equal(run(...SETTING_ARGS).status, 0);
   const fill = run('world', 'fill', '--data', JSON.stringify(goodWorld()));
-  assert.deepEqual([fill.json.locations, fill.json.npcs], [6, 6]);
+  assert.deepEqual([fill.json.locations, fill.json.npcs], [6, 7]);
   assert.equal(run('world', 'status').json.complete, true);
 });
 
@@ -470,7 +470,7 @@ test('world fill can read its JSON from stdin, so apostrophes in names are safe'
   world.locations.L1.description = "Where the smith's hammer never rests and nobody ain't busy.";
   const result = runInput(JSON.stringify(world), 'world', 'fill', '--data', '-');
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual([result.json.locations, result.json.npcs], [6, 6]);
+  assert.deepEqual([result.json.locations, result.json.npcs], [6, 7]);
   const empty = runInput('', 'world', 'fill', '--data', '-');
   assert.equal(empty.status, 1);
   assert.match(JSON.parse(empty.stderr.trim()).error, /json/i);

@@ -21,5 +21,7 @@ export const SKELETON = {
     { slot: 'N4', location: 'L3', role: 'wanderer' },
     { slot: 'N5', location: 'L4', role: 'recluse' },
     { slot: 'N6', location: 'L6', role: 'captain' },
+    // The final boss. Beating them after every quest is solved ends the campaign.
+    { slot: 'N7', location: 'L6', role: 'boss' },
   ],
 };

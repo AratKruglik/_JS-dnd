@@ -152,3 +152,9 @@ test('the README marks the stamina rows as built but not live-checked', () => {
   const penalties = readme.split('\n').find((l) => l.includes('Tiredness penalties'));
   assert.match(penalties, /Done/);
 });
+
+test('play.md says the world has seven NPCs including the final boss', () => {
+  assert.match(play, /7 NPC slots/);
+  assert.match(play, /all seven NPCs/);
+  assert.match(play, /final boss/i);
+});

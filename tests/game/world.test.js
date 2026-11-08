@@ -22,7 +22,7 @@ function goodWorld(prefix = '') {
   ['L1', 'L2', 'L3', 'L4', 'L5', 'L6'].forEach((slot, i) => {
     locations[slot] = { name: `${prefix}Place ${i + 1}`, description: `A dripping corner of the harbor, number ${i + 1}.` };
   });
-  ['N1', 'N2', 'N3', 'N4', 'N5', 'N6'].forEach((slot, i) => {
+  ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'].forEach((slot, i) => {
     npcs[slot] = {
       name: `${prefix}Person ${i + 1}`,
       description: `A wary local, number ${i + 1}.`,
@@ -53,10 +53,10 @@ test('setSetting rejects an unknown source, empty fields, and banned phrases', (
   assert.equal(count(db, 'world_settings'), 0);
 });
 
-test('fillWorld stores all 6 locations and 6 npcs in one call', () => {
+test('fillWorld stores all 6 locations and 7 npcs in one call', () => {
   const { db, saveId } = setup();
-  assert.deepEqual(fillWorld(db, saveId, goodWorld()), { locations: 6, npcs: 6 });
-  assert.deepEqual(rows(db), [6, 6]);
+  assert.deepEqual(fillWorld(db, saveId, goodWorld()), { locations: 6, npcs: 7 });
+  assert.deepEqual(rows(db), [6, 7]);
 });
 
 test('fillWorld is atomic: bad input writes nothing and names the problem', () => {
@@ -94,14 +94,14 @@ test('a rejected refill leaves the earlier world untouched', () => {
   bad.locations.L1.description = '';
   assert.throws(() => fillWorld(db, saveId, bad));
   assert.equal(db.prepare("SELECT name FROM world_locations WHERE slot = 'L1'").get().name, 'Place 1');
-  assert.deepEqual(rows(db), [6, 6]);
+  assert.deepEqual(rows(db), [6, 7]);
 });
 
 test('fillWorld again before play replaces the world cleanly', () => {
   const { db, saveId } = setup();
   fillWorld(db, saveId, goodWorld());
   fillWorld(db, saveId, goodWorld('New '));
-  assert.deepEqual(rows(db), [6, 6]);
+  assert.deepEqual(rows(db), [6, 7]);
   assert.equal(db.prepare("SELECT name FROM world_npcs WHERE slot = 'N1'").get().name, 'New Person 1');
 });
 
@@ -117,14 +117,14 @@ test('the world is locked after the first quest attempt', () => {
   assert.equal(db.prepare("SELECT name FROM world_npcs WHERE slot = 'N1'").get().name, 'Person 1');
 });
 
-test('worldStatus reports missing pieces and is complete only with setting, 6 locations, and 6 npcs', () => {
+test('worldStatus reports missing pieces and is complete only with setting, 6 locations, and 7 npcs', () => {
   const { db, saveId } = setup();
   assert.deepEqual(worldStatus(db, saveId), {
     settingSet: false,
     locationsFilled: 0,
     locationsTotal: 6,
     npcsFilled: 0,
-    npcsTotal: 6,
+    npcsTotal: 7,
     missing: ['setting', 'locations', 'npcs'],
     complete: false,
   });
@@ -135,8 +135,8 @@ test('worldStatus reports missing pieces and is complete only with setting, 6 lo
     settingSet: true,
     locationsFilled: 6,
     locationsTotal: 6,
-    npcsFilled: 6,
-    npcsTotal: 6,
+    npcsFilled: 7,
+    npcsTotal: 7,
     missing: [],
     complete: true,
   });
@@ -180,4 +180,19 @@ test('names that differ only by case or surrounding spaces count as duplicates',
   npcs.npcs.N2.name = 'person 1';
   assert.throws(() => fillWorld(db, saveId, npcs), /duplicate/i);
   assert.deepEqual(rows(db), [0, 0]);
+});
+
+test('fillWorld without the boss N7 is rejected and the error names N7', () => {
+  const { db, saveId } = setup();
+  const world = goodWorld();
+  delete world.npcs.N7;
+  assert.throws(() => fillWorld(db, saveId, world), /N7/);
+});
+
+test('an old world with only six npcs reports npcs as missing instead of crashing', () => {
+  const { db, saveId } = setup();
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
+  db.prepare("DELETE FROM world_npcs WHERE save_id = ? AND slot = 'N7'").run(saveId);
+  assert.deepEqual(worldStatus(db, saveId).missing, ['npcs']);
 });

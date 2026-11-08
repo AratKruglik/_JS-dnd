@@ -141,3 +141,11 @@ test('a knocked out npc talks again only after the hero solves a quest', () => {
   solve('dice-roll');
   assert.equal(talk(db, saveId, 'N1').npc.slot, 'N1');
 });
+
+test('the stronghold shows both the captain and the final boss', () => {
+  const { db, saveId } = ready();
+  go(db, saveId, 'L3');
+  go(db, saveId, 'L6');
+  assert.deepEqual(look(db, saveId).npcs.map((n) => n.slot), ['N6', 'N7']);
+  assert.equal(talk(db, saveId, 'N7').offer, null);
+});
