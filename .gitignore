@@ -2,3 +2,4 @@
 data/
 player/
 node_modules/
+.playwright-mcp/

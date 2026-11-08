@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Prints how to get a working Node.js and stops. It installs nothing itself.
+install_help() {
+  cat >&2 <<'HELP'
+Install the current Node.js release (this game was built on 25.8.1), then run this script again:
+  macOS with Homebrew:  brew install node
+  Linux or macOS:       install nvm from https://github.com/nvm-sh/nvm, then run: nvm install node
+  Anywhere:             download the installer from https://nodejs.org
+HELP
+}
+
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js is missing. Install it from https://nodejs.org and run this script again." >&2
+  echo "Node.js is missing." >&2
+  install_help
   exit 1
 fi
 
 if ! node -e "require('node:sqlite')" >/dev/null 2>&1; then
-  echo "This Node.js ($(node --version)) has no built-in SQLite (node:sqlite). Install a newer Node.js from https://nodejs.org and run this script again." >&2
+  echo "This Node.js ($(node --version)) has no built-in SQLite (node:sqlite)." >&2
+  install_help
   exit 1
 fi
 

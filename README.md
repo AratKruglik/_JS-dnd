@@ -73,7 +73,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Tiredness penalties                           | 6     | Done | None before 60% used, then attack and AC drop in steps. Near the end of the window the hero collapses and play stops until it resets. |
 | Hidden ending stats page                      | 7     | Done | A final boss guards it. After every quest and the boss, a script builds one self-contained page with time played (estimated), enemies defeated, tasks solved, and honor and complexity charts. Subjects learned is not built, and nobody has played from a fresh hero to the ending yet. |
 | Gemini, Grok, local model support             | later | Planned | After Claude works                                                                                                                              |
-| Open-source license                           | none  | Open    | Not chosen yet                                                                                                                                  |
+| Open-source license                           | none  | Done    | MIT                                                                                                                                             |
 | Completion certificate                        | none  | Parked  | Needs a link to some resource, decided later                                                                                                    |
 
 Each plan has an epic issue on the board: [Plan 2](https://github.com/yamnyk/_JS-dnd/issues/1), [Plan 3](https://github.com/yamnyk/_JS-dnd/issues/2), [Plan 4](https://github.com/yamnyk/_JS-dnd/issues/3), [Plan 5](https://github.com/yamnyk/_JS-dnd/issues/4), [Plan 6](https://github.com/yamnyk/_JS-dnd/issues/5), [Plan 7](https://github.com/yamnyk/_JS-dnd/issues/6).
@@ -158,4 +158,4 @@ The repo is public and meant to be open source. Read the design spec first. Item
 
 ## License
 
-Not chosen yet.
+MIT. See the `LICENSE` file.
