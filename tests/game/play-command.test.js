@@ -223,3 +223,15 @@ test('play.md tells the Master how to take back a solve it later finds was cheat
   assert.ok(quests.includes('node game/cli.js quest revoke'));
   assert.match(quests, /after a solve/i);
 });
+
+test('every --flag play.md mentions next to a command is a real option in the CLI usage', () => {
+  const probe = spawnSync('node', [join(root, 'game', 'cli.js')], { encoding: 'utf8' });
+  const usage = JSON.parse(probe.stderr.trim()).error;
+  const flags = new Set();
+  for (const line of play.split('\n')) {
+    if (!line.includes('node game/cli.js')) continue;
+    for (const match of line.matchAll(/--[a-z][a-z-]*/g)) flags.add(match[0]);
+  }
+  assert.ok(flags.size >= 8, `only ${flags.size} flags found`);
+  for (const flag of flags) assert.ok(usage.includes(flag), `play.md uses ${flag} but the usage does not list it`);
+});

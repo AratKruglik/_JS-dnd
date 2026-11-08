@@ -648,12 +648,13 @@ test('fight flee ends the fight, and bad tiers or aggressors exit 1', () => {
   const { run } = readyGame();
   assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'giant', '--aggressor', 'hero').status, 1);
   assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'bystander').status, 1);
-  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero').status, 0);
+  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero').status, 0);
   assert.equal(run('fight', 'flee').json.fight.status, 'fled');
 });
 
 test('an advanced move: propose from stdin, then a correct solution wins and a wrong one loses the turn', () => {
-  const { run, runInput } = readyGame();
+  const game = readyGame();
+  const { run, runInput } = game;
   run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
   const proposal = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   assert.equal(proposal.status, 0, proposal.stderr);
@@ -664,7 +665,7 @@ test('an advanced move: propose from stdin, then a correct solution wins and a w
   assert.deepEqual([won.json.moveStatus, won.json.fight.status], ['won', 'won']);
 
   run('go', 'L2');
-  run('fight', 'begin', '--npc', 'N2', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N2');
   const second = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   writeFileSync(second.json.file, 'export function solve(a, b) { return a - b; }');
   const lost = run('move', 'check', String(second.json.moveId));
@@ -763,7 +764,7 @@ test('a tired hero swings with the attack penalty from the current band', () => 
 
 test('collapse blocks every play command with the place and hours, and leaves read-only ones alone', () => {
   const game = readyGame();
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   setReading(game, 99, 150);
   const blocked = [
     ['go', 'L2'],
@@ -805,7 +806,7 @@ test('collapse blocks every play command with the place and hours, and leaves re
 
 test('the open fight resumes once the reading is from a window that has reset', () => {
   const game = readyGame();
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   setReading(game, 99);
   assert.equal(game.run('fight', 'attack').status, 1);
   setReading(game, 99, -5);
@@ -861,7 +862,7 @@ test('a tired hero is hit more easily from the first enemy turn of fight begin',
 test('move check uses the tired attack bonus for the sure hit it grants', () => {
   const game = readyGame();
   setReading(game, 85);
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   const proposal = game.runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   writeFileSync(proposal.json.file, 'export function solve(a, b) { return a + b; }');
   const won = game.run('move', 'check', String(proposal.json.moveId));
@@ -872,6 +873,12 @@ test('move check uses the tired attack bonus for the sure hit it grants', () => 
   const d20 = JSON.parse(db.prepare("SELECT results FROM dice_rolls WHERE context = 'hero attack'").get().results)[0];
   assert.equal(total - d20, 3);
 });
+
+// A fight the tests can trust: the hero goes first and the enemy never lands a blow, so real dice
+// can never end it before the test gets to look at it. Built through the library, then driven by the CLI.
+function stagedFight(game, npcSlot, tier = 'tough') {
+  return beginFight(game.db(), 1, { npcSlot, tier, aggressor: 'hero', rng: () => 0.01 });
+}
 
 function solveAllQuests(game) {
   const db = game.db();
@@ -1048,4 +1055,19 @@ test('quest revoke is blocked while the hero is collapsed', () => {
   const result = game.run('quest', 'revoke', 'dice-roll', 'x');
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(result.stderr.trim()).collapsed, true);
+});
+
+test('tampering with the dice blocks all seven combat commands with exit 2', () => {
+  const game = readyGame();
+  appendFileSync(game.env.JSDND_DICE_PATH, '\n// cheat\n');
+  const commands = [
+    ['npc', 'warn', 'N1', 'x'],
+    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero'],
+    ['fight', 'attack'],
+    ['fight', 'flee'],
+    ['fight', 'state'],
+    ['move', 'propose', '--data', '-'],
+    ['move', 'check', '1'],
+  ];
+  for (const args of commands) assert.equal(game.run(...args).status, 2, args.join(' '));
 });

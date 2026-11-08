@@ -58,3 +58,17 @@ test('a legal host written without a scheme is still legal', () => {
   assert.deepEqual(classifyLink('not a url'), { legal: false, host: null });
   assert.deepEqual(classifyLink('javascript:alert(1)'), { legal: false, host: null });
 });
+
+test('only the exact host counts: no subdomain, no suffix, no prefix of a legal host', () => {
+  for (const url of [
+    'https://sub.developer.mozilla.org/en-US/',
+    'https://developer.mozilla.org.evil.test/en-US/',
+    'https://evil-developer.mozilla.org/',
+    'https://notjavascript.info/',
+    'https://javascript.info.evil.test/',
+    'https://x.mozilla.org.evil.test/',
+    'https://mozilla.org/',
+  ]) {
+    assert.equal(classifyLink(url).legal, false, url);
+  }
+});

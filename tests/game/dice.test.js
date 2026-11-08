@@ -60,3 +60,15 @@ test('a rejected spec writes nothing', () => {
   assert.throws(() => rollAndLog(db, saveId, '1000d6'), /dice/i);
   assert.equal(count(db, 'dice_rolls'), 0);
 });
+
+test('parseSpec pins its edge inputs: lowercase d only, no spaces, leading zeros accepted', () => {
+  assert.throws(() => parseSpec('D20'), /bad dice spec/i);
+  assert.throws(() => parseSpec('1d20 '), /bad dice spec/i);
+  assert.throws(() => parseSpec(' 1d20'), /bad dice spec/i);
+  assert.throws(() => parseSpec('1D20'), /bad dice spec/i);
+  assert.deepEqual(parseSpec('007d06'), { count: 7, sides: 6 });
+  assert.deepEqual(parseSpec('d20'), { count: 1, sides: 20 });
+  assert.throws(() => parseSpec('0d6'), /count/i);
+  assert.throws(() => parseSpec('101d6'), /count/i);
+  assert.throws(() => parseSpec('d0'), /sides/i);
+});

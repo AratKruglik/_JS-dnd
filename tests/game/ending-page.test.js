@@ -173,3 +173,36 @@ test('digits use lining figures and five stat cards fit one row on a wide screen
   assert.match(html, /font-variant-numeric: lining-nums/);
   assert.match(html, /minmax\(130px, 1fr\)/);
 });
+
+test('a chart label with quotes cannot break out of the aria-label attribute', () => {
+  const svg = lineChart([{ x: 1, y: 1 }], { label: '"><script>x</script>' });
+  assert.ok(svg.includes('aria-label="&quot;&gt;&lt;script&gt;x&lt;/script&gt;"'));
+  assert.ok(!svg.includes('"><script'));
+});
+
+test('a mark title is escaped', () => {
+  const svg = lineChart(
+    [
+      { x: 1, y: 1 },
+      { x: 5, y: 2 },
+    ],
+    { marks: [{ x: 3, label: '<b>fall</b>' }] },
+  );
+  assert.ok(!svg.includes('<b>'));
+  assert.ok(svg.includes('&lt;b&gt;fall&lt;/b&gt;'));
+});
+
+test('a chart draws at most 300 dots, and values above the top stay inside the chart', () => {
+  const points = Array.from({ length: 400 }, (_, i) => ({ x: i, y: 5 }));
+  assert.equal((lineChart(points).match(/<circle/g) ?? []).length, 300);
+
+  const high = lineChart(
+    [
+      { x: 1, y: 500 },
+      { x: 2, y: -500 },
+    ],
+    { yMin: -100, yMax: 100, width: 640, height: 220 },
+  );
+  const ys = [...high.matchAll(/cy="([^"]+)"/g)].map((m) => Number(m[1]));
+  assert.ok(ys.length === 2 && ys.every((y) => y >= 16 && y <= 192), ys.join(','));
+});

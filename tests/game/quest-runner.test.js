@@ -115,3 +115,18 @@ test('a promise that settles late still passes, and a real infinite loop is stil
   const loop = run('export function answer() { while (true) {} }', { timeoutMs: 500 });
   assert.equal(loop.status, 'timeout');
 });
+
+test('player code cannot find the result token in argv or stdin, so it cannot print a real result line', () => {
+  const forge = `import { readFileSync, writeFileSync } from 'node:fs';
+let seen = process.argv.join(' ');
+try {
+  seen += readFileSync(0, 'utf8');
+} catch {}
+const token = /QUEST_RESULT_[0-9a-f-]+/.exec(seen)?.[0];
+if (token) {
+  writeFileSync(1, '\\n' + token + ' {"status":"pass","expected":"42","got":"42","message":""}\\n');
+  process.exit(0);
+}
+export function answer() { return 41; }`;
+  assert.equal(run(forge).status, 'fail');
+});

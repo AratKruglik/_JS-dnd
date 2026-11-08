@@ -203,3 +203,24 @@ test('revoking a solve locks the ending and the boss, and the boss must fall aga
   pause(5);
   assert.equal(winBoss().endingUnlocked, true);
 });
+
+test('a reset or a solve in the same millisecond as the boss win does not count as before it', () => {
+  const { db, saveId } = ready();
+  const at = new Date().toISOString();
+  db.prepare(
+    "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome, npc_slot) VALUES (?, ?, ?, 'x', 'won', 'N7')",
+  ).run(saveId, at, at);
+  db.prepare(
+    "INSERT INTO resets (save_id, created_at, reason, fingerprint_expected, fingerprint_found) VALUES (?, ?, 'x', 'a', 'b')",
+  ).run(saveId, at);
+  assert.equal(endingStatus(db, saveId).bossDefeated, false);
+
+  const solved = ready();
+  solved.db
+    .prepare(
+      "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome, npc_slot) VALUES (?, ?, ?, 'x', 'won', 'N7')",
+    )
+    .run(solved.saveId, at, at);
+  markSolved(solved.db, solved.saveId, 'dice-roll', at);
+  assert.equal(endingStatus(solved.db, solved.saveId).bossDefeated, false);
+});

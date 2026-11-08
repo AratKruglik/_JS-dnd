@@ -322,3 +322,23 @@ test('a quest solved in an earlier epoch can host a fight again after a reset', 
   });
   assert.equal(open.status, 'open');
 });
+
+test('a roll that fails in the middle of an attack rolls the whole attack back', () => {
+  const { db, saveId } = ready();
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const before = {
+    rolls: count(db, 'dice_rolls'),
+    log: count(db, 'fight_log'),
+    hp: getFightState(db, saveId).enemy.hp,
+  };
+  let calls = 0;
+  const failing = () => {
+    calls += 1;
+    if (calls === 3) throw new Error('the dice broke');
+    return 0.7;
+  };
+  assert.throws(() => heroAttack(db, saveId, { rng: failing }), /dice broke/);
+  assert.equal(count(db, 'dice_rolls'), before.rolls);
+  assert.equal(count(db, 'fight_log'), before.log);
+  assert.equal(getFightState(db, saveId).enemy.hp, before.hp);
+});
