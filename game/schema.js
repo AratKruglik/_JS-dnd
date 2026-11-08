@@ -132,4 +132,38 @@ ALTER TABLE heroes ADD COLUMN class_description TEXT;
 ALTER TABLE heroes ADD COLUMN location_slot TEXT NOT NULL DEFAULT 'L1';
 `,
   },
+  {
+    // The Master's content for the fixed skeleton: setting, location names, and NPCs.
+    version: 5,
+    sql: `
+CREATE TABLE world_settings (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL UNIQUE REFERENCES saves (id),
+  created_at TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('offered', 'customized', 'written')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  voice TEXT NOT NULL
+);
+CREATE TABLE world_locations (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  slot TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  UNIQUE (save_id, slot),
+  UNIQUE (save_id, name)
+);
+CREATE TABLE world_npcs (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  slot TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  voice TEXT NOT NULL,
+  UNIQUE (save_id, slot),
+  UNIQUE (save_id, name)
+);
+`,
+  },
 ];
