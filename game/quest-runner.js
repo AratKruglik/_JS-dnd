@@ -13,6 +13,6 @@ export function runQuestCheck(questId, playerPath, { timeoutMs = 5000, questsMod
   return runChecked({
     entry: childEntry,
     timeoutMs,
-    buildArgs: (token) => (questsModule ? [questId, playerPath, token, questsModule] : [questId, playerPath, token]),
+    args: questsModule ? [questId, playerPath, questsModule] : [questId, playerPath],
   });
 }

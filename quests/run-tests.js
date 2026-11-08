@@ -5,7 +5,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-const [playerPath, token] = process.argv.slice(2);
+const [playerPath] = process.argv.slice(2);
+// The first stdin line is the result token, the rest is the tests JSON.
+const stdin = readFileSync(0, 'utf8');
+const cut = stdin.indexOf('\n');
+const token = stdin.slice(0, cut);
 
 const firstLine = (error) => String(error?.message ?? error).split('\n')[0].trim();
 const show = (value) => (value === undefined ? 'undefined' : JSON.stringify(value));
@@ -17,7 +21,7 @@ function emit(result) {
 }
 
 try {
-  const tests = JSON.parse(readFileSync(0, 'utf8'));
+  const tests = JSON.parse(stdin.slice(cut + 1));
   let mod;
   try {
     mod = await import(pathToFileURL(resolve(playerPath)).href);

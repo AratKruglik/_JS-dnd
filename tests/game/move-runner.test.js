@@ -119,3 +119,14 @@ test('validateMoveProblem rejects a looping reference without hanging', () => {
   assert.equal(result.ok, false);
   assert.ok(Date.now() - started < 3000);
 });
+
+test('the result token is not in the child argv, so player code cannot print a real result line', () => {
+  const forge = `import { writeSync } from 'node:fs';
+const token = process.argv.slice(2).find((a) => a.startsWith('QUEST_RESULT_'));
+if (token) {
+  writeSync(1, '\\n' + token + ' {"status":"pass","expected":"","got":"","message":""}\\n');
+  process.exit(0);
+}
+export function solve() { return 0; }`;
+  assert.equal(run(forge).status, 'fail');
+});

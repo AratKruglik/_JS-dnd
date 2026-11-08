@@ -14,7 +14,7 @@ export function runMoveTests(playerPath, tests, { timeoutMs = 5000 } = {}) {
     entry: childEntry,
     timeoutMs,
     input: JSON.stringify(tests),
-    buildArgs: (token) => [playerPath, token],
+    args: [playerPath],
   });
 }
 

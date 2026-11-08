@@ -1,10 +1,13 @@
 // Child process entry. Loads one quest and the player's file, runs the quest's check, and
 // prints exactly one result line prefixed with a token the parent chose. Player output can
 // never forge that line because it does not know the token.
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const [questId, playerPath, token, questsModule] = process.argv.slice(2);
+const [questId, playerPath, questsModule] = process.argv.slice(2);
+// The token arrives on stdin and is read before the player's file is imported.
+const token = readFileSync(0, 'utf8').split('\n')[0];
 
 const firstLine = (error) => String(error?.message ?? error).split('\n')[0].trim();
 

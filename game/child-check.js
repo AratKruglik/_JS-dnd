@@ -10,12 +10,13 @@ export const oneLine = (text) => clip(String(text).split('\n')[0].trim());
 
 // Runs a check script in a child process and reads back exactly one result line that starts
 // with a random token. Synchronous and never throws: a bad player file only ever produces a
-// status. Shared by quest checks and combat move checks.
-export function runChecked({ entry, buildArgs, input, timeoutMs }) {
+// status. Shared by quest checks and combat move checks. The token reaches the child as the
+// first stdin line, not in argv, so the player's code has no copy of it to print.
+export function runChecked({ entry, args = [], input = '', timeoutMs }) {
   const token = `QUEST_RESULT_${randomUUID()}`;
-  const run = spawnSync(process.execPath, [entry, ...buildArgs(token)], {
+  const run = spawnSync(process.execPath, [entry, ...args], {
     encoding: 'utf8',
-    input,
+    input: `${token}\n${input}`,
     timeout: timeoutMs,
     killSignal: 'SIGKILL',
     maxBuffer: 1024 * 1024,

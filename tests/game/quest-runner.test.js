@@ -84,3 +84,14 @@ test('huge got, expected, and error text is cut short', () => {
   assert.equal(thrown.status, 'error');
   assert.ok(thrown.message.length <= 300, `message was ${thrown.message.length} characters`);
 });
+
+test('the result token is not in the child argv, so player code cannot print a real result line', () => {
+  const forge = `import { writeSync } from 'node:fs';
+const token = process.argv.slice(2).find((a) => a.startsWith('QUEST_RESULT_'));
+if (token) {
+  writeSync(1, '\\n' + token + ' {"status":"pass","expected":"42","got":"42","message":""}\\n');
+  process.exit(0);
+}
+export function answer() { return 41; }`;
+  assert.equal(run(forge).status, 'fail');
+});
