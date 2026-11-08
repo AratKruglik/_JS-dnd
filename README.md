@@ -22,13 +22,14 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 
 | Part               | Choice                     | Why                                                                                                                            |
 | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime            | Node.js                    | The player needs it anyway to run their own quest code. Built-in `node:sqlite` and `node:test` mean zero npm dependencies.     |
+| Runtime            | Node.js                    | The player needs it anyway to run their own quest code. Built-in `node:sqlite` and `node:test` mean the game itself has zero npm dependencies.     |
 | Game database      | SQLite                     | Real SQL with joins, foreign keys, and recursive queries for the locations graph. Lives in a local file, no server to install. |
 | Dev notes database | SQLite, gitignored         | Separate from the game DB. Stores task state between sessions for whoever builds the game.                                     |
 | Setup              | One `setup.sh`             | Checks and installs what is needed. No Docker.                                                                                 |
 | AI host            | Claude Code (first)        | Built-in choice prompts drive most turns. Gemini, Grok, and local models come later.                                           |
 | Tracking           | GitHub Issues and Projects | Board "JS D&D" on this repo, driven through the `gh` CLI.                                                                      |
 | Tests              | `node:test`                | No test framework to install.                                                                                                  |
+| Code style         | Prettier and ESLint        | Dev dependencies, installed by `setup.sh`. They check this repo and the style of the player's quest files. The game plays without them. |
 
 Game state lives only in SQLite, reached through scripts, never in JSON or markdown files. That keeps token use low so a player gets more play out of one usage window.
 
@@ -68,6 +69,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Choice-prompt play UI                         | 4     | Done    | The /play command drives Claude choice prompts. Every location has 4 exits or fewer, so no paging is needed. Claude specific.                                                                   |
 | D&D combat                                    | 5     | Done    | A simple D&D core: initiative, HP, AC, attack and damage rolled by script. NPCs warn twice before they fight (warnings clear when a fight ends), quest fights need no warning, a beaten NPC is knocked out until you solve another quest, and defeat means waking at the start.                                                                                                |
 | JS moves in combat                            | 5     | Done    | A spectacular move triggers a JS problem the Master writes. A script rejects any problem whose own reference solution fails. A pass is a sure hit with double damage, a fail loses the turn. A subagent writes the hidden tests so you never see them, and the Master reads your move file for cheating.                                                                                 |
+| Code style check on quest files | 3 | Done | Prettier and ESLint run on a passing quest file. Problems are shown with their lines, the player may fix them or keep the file and lose a little honor. Needs `npm install`, which `setup.sh` runs, and is skipped when the tools are missing. |
 | Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice file is checked before every command. A change resets you to level 1 in the same world and keeps your history. |
 | Stamina bar from the real 5hr limit           | 6     | In progress | A project status line reads the real usage and stores it in the DB, with a game-time estimate as fallback. Built and tested, still needs one live check in a fresh Claude Code session. |
 | Tiredness penalties                           | 6     | Done | None before 60% used, then attack and AC drop in steps. Near the end of the window the hero collapses and play stops until it resets. |
@@ -85,6 +87,8 @@ You need Node.js with `node:sqlite` support (Node 25.8.1 is what this was built 
 ```bash
 bash setup.sh        # checks Node and node:sqlite, creates the game DB in data/
 node --test          # runs the test suite
+npm run lint         # ESLint
+npm run format       # Prettier, writes the fixes
 node dev/cli.js status
 ```
 

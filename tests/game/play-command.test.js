@@ -198,3 +198,15 @@ test('play.md has an Ending section for the boss and the hidden page, and the RE
     /Done/,
   );
 });
+
+test('play.md hands over the style directions and runs the warn, fix, or decline flow', () => {
+  const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
+  assert.match(quests, /style\.general/);
+  assert.match(quests, /style\.specific/);
+  assert.match(quests, /style\.ok/);
+  assert.match(quests, /style\.ran/);
+  assert.ok(quests.includes('node game/cli.js quest style-decline'));
+  assert.match(quests, /choice prompt/i);
+  assert.match(quests, /fix/i);
+  assert.match(quests, /a little honor/i);
+});

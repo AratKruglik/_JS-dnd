@@ -1,7 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { sealDice } from '../game/integrity.js';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -73,4 +82,58 @@ test('an old node without node:sqlite names its version and prints the same inst
   assert.match(result.stderr, /v18\.0\.0/);
   assert.match(result.stderr, /node:sqlite/);
   for (const pattern of HELP) assert.match(result.stderr, pattern);
+});
+
+// A throwaway copy of setup.sh next to a stub game, so the npm step can be seen without touching the repo.
+function stubInstall() {
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-npm-'));
+  mkdirSync(join(dir, 'game'));
+  copyFileSync(join(root, 'setup.sh'), join(dir, 'setup.sh'));
+  writeFileSync(join(dir, 'game', 'cli.js'), "console.log('{}');\n");
+  return dir;
+}
+const runIn = (dir, env) => spawnSync('/bin/bash', [join(dir, 'setup.sh')], { cwd: dir, env, encoding: 'utf8' });
+const withNpm = (script) => {
+  const bin = mkdtempSync(join(tmpdir(), 'jsdnd-fakebin-'));
+  symlinkSync(process.execPath, join(bin, 'node'));
+  if (script) {
+    writeFileSync(join(bin, 'npm'), script);
+    chmodSync(join(bin, 'npm'), 0o755);
+  }
+  return `${bin}:/bin:/usr/bin`;
+};
+
+test('setup.sh installs the style tools with npm when they are missing', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm(`#!/bin/sh\necho "$@" > "${dir}/npm-called"\nexit 0\n`) });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Setup complete/);
+  assert.ok(existsSync(join(dir, 'npm-called')), 'npm should have run');
+});
+
+test('setup.sh leaves npm alone when the style tools are already there', () => {
+  const dir = stubInstall();
+  mkdirSync(join(dir, 'node_modules', '.bin'), { recursive: true });
+  writeFileSync(join(dir, 'node_modules', '.bin', 'prettier'), '');
+  chmodSync(join(dir, 'node_modules', '.bin', 'prettier'), 0o755);
+  const result = runIn(dir, { PATH: withNpm(`#!/bin/sh\ntouch "${dir}/npm-called"\n`) });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(join(dir, 'npm-called')), false);
+});
+
+test('a failing npm install only warns, and setup still completes', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm('#!/bin/sh\nexit 1\n') });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Setup complete/);
+  assert.match(result.stderr, /style check will be skipped/i);
+});
+
+test('no npm at all only warns, and setup still completes', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm(null) });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Setup complete/);
+  assert.match(result.stderr, /npm/);
+  assert.match(result.stderr, /style check will be skipped/i);
 });
