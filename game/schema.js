@@ -233,4 +233,17 @@ CREATE TABLE stamina (
 );
 `,
   },
+  {
+    // A player who passes a quest but keeps code that fails the style check takes a small honor hit, once per solve.
+    version: 10,
+    sql: `
+CREATE TABLE style_declines (
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  quest_id TEXT NOT NULL,
+  epoch INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, quest_id, epoch)
+);
+`,
+  },
 ];

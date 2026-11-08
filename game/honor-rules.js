@@ -18,6 +18,7 @@ export const HONOR_RULES = {
   help_attempt: 5,
   help_success: 8,
   greeting: 1,
+  style_declined: -2,
 };
 
 // Below 0 the Master roasts, at 0 and above the review is gentle.

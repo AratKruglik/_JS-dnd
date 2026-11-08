@@ -160,7 +160,7 @@ test('an older database is neither migrated nor waited on by the bar', () => {
   assert.match(oneLine(result), /62% left/);
   assert.ok(Date.now() - started < 2500, 'the bar waited on the lock');
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'stamina'").get().n, 0);
-  assert.equal(MIGRATIONS.at(-1).version, 9);
+  assert.ok(MIGRATIONS.some((m) => m.version === 9));
 });
 
 test('the bar prints green, yellow, or red by how much stamina is left', () => {

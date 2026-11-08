@@ -7,6 +7,8 @@ import { getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
+import { GENERAL_STYLE } from '../quests/style.js';
+import { checkStyle } from './style-check.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HINT_KINDS = ['npc_speech', 'legal_doc', 'illegal_doc', 'master_leak'];
@@ -43,11 +45,18 @@ export function startQuest(questId, { playerDir = defaultPlayerDir() } = {}) {
   const file = join(playerDir, `${quest.id}.js`);
   const created = !existsSync(file);
   if (created) writeFileSync(file, quest.stub);
-  return { questId: quest.id, file, created, brief: quest.brief };
+  return {
+    questId: quest.id,
+    file,
+    created,
+    brief: quest.brief,
+    style: { general: GENERAL_STYLE, specific: quest.style?.specific ?? [] },
+  };
 }
 
 // Step 1. Always records an attempt. Honor never changes here.
-export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir(), timeoutMs } = {}) {
+// With style: true a passing file also gets the style check (a separate, slower step).
+export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir(), timeoutMs, style = false } = {}) {
   const quest = requireQuest(questId);
   const playerPath = join(playerDir, `${quest.id}.js`);
   // Hash first: this is the code the check is about to run. Step 2 must read the same bytes.
@@ -64,7 +73,39 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
     ...result,
     next: passed ? 'judge' : 'retry',
     ...(passed ? { tone: toneFor(getHonor(db, saveId)) } : {}),
+    ...(passed && style ? { style: checkStyle(playerPath) } : {}),
   };
+}
+
+// The player kept code that fails the style check after being warned. Small honor hit, once per solve.
+export function declineStyle(db, saveId, questId, { playerDir = defaultPlayerDir(), styleRoot } = {}) {
+  const quest = requireQuest(questId);
+  return inTransaction(db, () => {
+    const passed = db
+      .prepare("SELECT 1 FROM quest_attempts WHERE save_id = ? AND quest_id = ? AND status = 'pass' LIMIT 1")
+      .get(saveId, quest.id);
+    if (!passed) throw new Error(`No passing attempt for "${quest.id}". Run the check first.`);
+    const epoch = epochOf(db, saveId);
+    if (
+      db
+        .prepare('SELECT 1 FROM style_declines WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+        .get(saveId, quest.id, epoch)
+    ) {
+      throw new Error(`The style of "${quest.id}" was already declined.`);
+    }
+    const result = checkStyle(join(playerDir, `${quest.id}.js`), styleRoot ? { root: styleRoot } : undefined);
+    if (!result.ran) throw new Error(`The style check is not available. ${result.message}`);
+    if (result.ok) throw new Error('There is nothing to decline: the style is clean.');
+    db.prepare('INSERT INTO style_declines (save_id, quest_id, epoch, created_at) VALUES (?, ?, ?, ?)').run(
+      saveId,
+      quest.id,
+      epoch,
+      now(),
+    );
+    return {
+      honor: applyHonorRule(db, saveId, 'style_declined', `kept code that fails the style check in ${quest.id}`),
+    };
+  });
 }
 
 // Step 2. The Master reads the file and reports a verdict; this records it and moves honor.
