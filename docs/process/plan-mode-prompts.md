@@ -135,3 +135,51 @@ PROCESS
 - Write the plan to docs/superpowers/plans/ using the writing-plans skill: header, Global Constraints, Decisions (mine versus your calls), Review Focus with a test per line, tasks in test-first order with exact interfaces. Review Focus must cover at least: plural forms, Cyrillic and Latin mixing, banned-phrase boundaries with Cyrillic, a missing key at runtime, switching language mid-game with stored text, scripts that parse JSON text fields, and the stamina bar and ending page with Cyrillic text.
 - End with the execution handoff question (subagent-driven or native) and your recommendation.
 ```
+
+## Extra plan: Fix the deferred review findings
+
+Every final review left Minors that the plans deferred. They are collected, with where each came from and a status, in `docs/process/deferred-findings.md`. Paste this into plan mode to turn them into a fix plan.
+
+```
+Read docs/process/deferred-findings.md in full, then docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md, docs/superpowers/specs/2026-11-08-curriculum-catalog.md, and docs/superpowers/plans/2026-11-08-multi-language.md (approved, not built yet). Run `node dev/cli.js status` and read the current state first.
+
+GOAL
+Fix the deferred review findings that are worth fixing, test first, in a few small plans-worth of tasks. The register has about 50 items from Plans 2 to 7. They were all graded Minor by the reviewers, and some of that grading was about the spec's silence, not about the effect on a player. Re-grade every item by what a reasonable player or the Master gets if it ships, then fix the ones that matter and say plainly which ones you leave and why.
+
+PLAN ONLY THIS SUBSYSTEM: the deferred findings (register ids A1 to F2). The owner-call items (G1 to G4, and B10) are decisions for me, not bugs.
+
+STEP 0: VERIFY BEFORE PLANNING
+The register says "open" for most items, but code has moved since each review. For every item, read the current code and tests and confirm whether it is still true. Run a probe or a mutation test where a claim is about behavior (for example "two parallel `move check` calls both apply", "a passing attempt from before a reset can be judged after it", "a never-settling promise gives a vague error", "a location named L3 hijacks `go`"). Report each item as: still true (verified by running), still true (inference only, label it), or already fixed. Drop the fixed ones from the plan and update the register status in the plan.
+
+STEP 1: RE-GRADE BY EFFECT
+Sort what remains into Important (a player can be cheated, blocked, or lose or gain honor wrongly; state can be corrupted; the Master can be misled) and Minor (polish, test gaps, rare edge cases). Candidates I suspect deserve Important, but you decide from evidence: A7 (parallel calls double-apply), A5 (tamper path crashes if the DB cannot open), B5 (the ending can re-unlock without the Master being told), B9 (honor from a pre-reset attempt), B7 and C7 (quest commands ignore gating and hide the file path), D1 (a never-settling promise gives a vague error, and rungs 4 and 5 are about promises and timers), E1 (a flaky test fails about 1 run in 120 and one was seen again recently), B1 (`--quest` bypasses the warning gate).
+
+CONSTRAINTS
+- Commit and push yourself with plain messages. Never a co-author or Claude line. Never force-push or rewrite pushed history without asking. Ask before other outward-facing actions.
+- No em-dash and no en-dash anywhere.
+- Deterministic work in scripts. Game state only in SQLite through scripts. Every connection uses `openGameDb`.
+- Zero npm runtime dependencies. Prettier and ESLint are dev dependencies already in place: `npm run lint` and `npm run format:check` must stay green. Never touch or format `game/dice.js`: it is fingerprinted.
+- Tests first for every fix: write the test, watch it fail for the right reason, then fix, then run the whole suite. A fix without a test that failed first does not count. Prefer tests that fail when the production change is removed (name that change before writing the test).
+- Machine-readable surfaces stay English and stable. A fix must not change CLI command names, JSON keys, DB column names, honor kinds, or quest ids, unless I approve it.
+- The multi-language plan is approved but not built. Any new player-facing or Master-facing message you add is English for now, and the plan must say how each one will be keyed later, so the language work does not have to chase them.
+- Migrations are append-only. Never edit an applied one.
+- Keep each fix as small as the finding. No refactors for taste.
+
+ASK ME BEFORE ASSUMING: USE AskUserQuestion, ONE DECISION AT A TIME OR SMALL RELATED GROUPS, WITH YOUR RECOMMENDATION FIRST. DO NOT WRITE THE PLAN UNTIL THESE ARE ANSWERED:
+1. Order: before or after the multi-language plan, and before or after the 51-quest curriculum. List which findings must land before the curriculum (the ones the new quests depend on) and which can wait.
+2. Scope: fix everything that is still true, only the ones you re-graded Important, or Important plus the cheap test gaps. Show me the counts for each choice.
+3. Each owner call, one by one, with what it costs either way: G1 (a tamper reset wipes race bonuses, per spec 5.8), G2 (reading a legal doc drops the clean bonus from +8 to +5), G3 (player code is unsandboxed), G4 (the fingerprint covers only dice.js, not rolls.js or cli.js), and B10 (a solve cannot be revoked by a later cheated verdict).
+4. A7, parallel calls: how strict should it be? Options include moving every state read inside the transaction, a per-save advisory lock, or refusing a second concurrent write with a clear error. Recommend one and say what each costs.
+5. E1, the flaky tests: inject a seeded rng through an environment variable the test sets, restructure the tests to use the library with a scripted rng, or retry. Recommend one.
+6. D1, never-settling promises: what should the player see, and should a check wait with a timeout and say which function never finished.
+7. B6 and B7 (knockout deadlock and quest commands ignoring gating): should the scripts enforce that a quest can only start when its NPC is awake and the hero is in the right place, or stay permissive so the Master can always recover?
+8. Anything you find while verifying that is not in the register: list it and ask whether it joins this plan.
+
+PROCESS
+- Read the real code and tests first. Do not trust the register's wording: it was written from reviewer reports.
+- Separate confirmed facts from inference and label inference as inference. Never present a guess as evidence.
+- Write the plan to docs/superpowers/plans/ using the writing-plans skill: header, Global Constraints, Decisions (mine versus your calls), Review Focus with a test per line, tasks grouped by area (atomicity and the DB, game rules, input validation, robustness, tests, docs), each task with exact interfaces and test names, test first.
+- Review Focus must cover at least: two processes writing at once, a crash in the middle of a multi-row write, a tamper reset in the middle of a quest or a fight, a quest added after the ending was unlocked, a hostile or odd name (NBSP, zero-width, very long, a slot name), a bad option under a tamper, and the file path the player is told to edit.
+- Update docs/process/deferred-findings.md statuses as part of the plan's last task, so the register stays the source of truth.
+- End with the execution handoff question (subagent-driven or native) and your recommendation.
+```
