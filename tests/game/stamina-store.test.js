@@ -21,13 +21,50 @@ test('a fresh reading is used as it is', () => {
   assert.deepEqual([s.usedPercent, s.estimated, s.band, s.collapsed], [42, false, 'fresh', false]);
 });
 
-test('a reading older than 15 minutes falls back to the estimate', () => {
+test('a stale reading whose window is still open is still the best data, marked as estimated', () => {
   const { db, saveId } = setup();
   touchWindow(db, saveId, T0);
   recordReading(db, saveId, { usedPercent: 90, resetsAt: secs(T0 + 3 * 60 * MIN) }, T0);
   const s = currentStamina(db, saveId, T0 + 16 * MIN);
-  assert.equal(s.estimated, true);
-  assert.ok(s.usedPercent > 5 && s.usedPercent < 6, `estimate was ${s.usedPercent}`);
+  assert.deepEqual([s.usedPercent, s.estimated, s.collapsed], [90, true, false]);
+});
+
+test('a stale low reading is not turned into a collapse by a long game-time window', () => {
+  const { db, saveId } = setup();
+  touchWindow(db, saveId, T0);
+  const later = T0 + 295 * MIN;
+  recordReading(db, saveId, { usedPercent: 20, resetsAt: secs(later + 120 * MIN) }, later - 17 * MIN);
+  const s = currentStamina(db, saveId, later);
+  assert.deepEqual([s.usedPercent, s.collapsed], [20, false]);
+});
+
+test('a stale 99 percent reading still collapses while its window is open', () => {
+  const { db, saveId } = setup();
+  recordReading(db, saveId, { usedPercent: 99, resetsAt: secs(T0 + 180 * MIN) }, T0);
+  assert.equal(currentStamina(db, saveId, T0 + 16 * MIN).collapsed, true);
+});
+
+test('a reading is fresh at exactly 15 minutes and estimated one millisecond later', () => {
+  const { db, saveId } = setup();
+  recordReading(db, saveId, { usedPercent: 40, resetsAt: secs(T0 + 180 * MIN) }, T0);
+  assert.equal(currentStamina(db, saveId, T0 + 15 * MIN).estimated, false);
+  assert.equal(currentStamina(db, saveId, T0 + 15 * MIN + 1).estimated, true);
+});
+
+test('a reading from the future (the clock moved back) is ignored', () => {
+  const { db, saveId } = setup();
+  recordReading(db, saveId, { usedPercent: 99, resetsAt: secs(T0 + 24 * 60 * MIN) }, T0 + 20 * 60 * MIN);
+  const s = currentStamina(db, saveId, T0);
+  assert.deepEqual([s.estimated, s.collapsed, s.usedPercent], [true, false, 0]);
+});
+
+test('a resets_at that is not within the next 6 hours (milliseconds by mistake, or absurd) is ignored', () => {
+  const { db, saveId } = setup();
+  for (const bad of [T0 + 3 * 60 * MIN, 1e308, secs(T0) + 7 * 3600]) {
+    recordReading(db, saveId, { usedPercent: 99, resetsAt: bad }, T0);
+    const s = currentStamina(db, saveId, T0 + MIN);
+    assert.deepEqual([s.estimated, s.collapsed, Number.isFinite(s.hours), s.hours <= 5], [true, false, true, true], String(bad));
+  }
 });
 
 test('a reading whose window has reset falls back to the estimate', () => {
@@ -84,4 +121,13 @@ test('migration 9 applies on top of a version 8 database', () => {
   db.exec('DELETE FROM schema_migrations WHERE version = 9');
   migrate(db);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'stamina'").get().n, 1);
+});
+
+test('the estimate window turns over at exactly 5 hours', () => {
+  const { db, saveId } = setup();
+  touchWindow(db, saveId, T0);
+  assert.equal(Math.round(currentStamina(db, saveId, T0 + WINDOW_MS - 1).usedPercent), 100);
+  assert.equal(currentStamina(db, saveId, T0 + WINDOW_MS).usedPercent, 0);
+  touchWindow(db, saveId, T0 + WINDOW_MS);
+  assert.equal(db.prepare('SELECT window_started_at AS w FROM stamina WHERE save_id = ?').get(saveId).w, T0 + WINDOW_MS);
 });

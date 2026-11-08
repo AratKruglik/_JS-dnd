@@ -692,3 +692,50 @@ test('a tampered dice file still exits 2 during a collapse', () => {
   appendFileSync(game.env.JSDND_DICE_PATH, '\n// cheat\n');
   assert.equal(game.run('go', 'L2').status, 2);
 });
+
+test('collapse also stops honor edits and the legacy fight commands', () => {
+  const game = readyGame();
+  setReading(game, 99);
+  for (const args of [['honor', 'add', '50', 'quest', 'free honor'], ['honor', 'event', 'cheat', 'x'], ['fight', 'start', 'brawl'], ['fight', 'end', '1', 'won'], ['fight', 'log', '1', 'hero', 'attack']]) {
+    const result = game.run(...args);
+    assert.equal(result.status, 1, args.join(' '));
+    assert.equal(JSON.parse(result.stderr.trim()).collapsed, true, args.join(' '));
+  }
+  assert.equal(game.run('honor', 'show').json.honor, 0);
+});
+
+test('look reports the real band and the collapse flag', () => {
+  const game = readyGame();
+  setReading(game, 85);
+  assert.deepEqual(game.run('look').json.stamina, { band: 'weary', collapsed: false });
+  setReading(game, 99);
+  assert.deepEqual(game.run('look').json.stamina, { band: 'collapsed', collapsed: true });
+});
+
+test('a tired hero is hit more easily from the first enemy turn of fight begin', () => {
+  const game = readyGame();
+  setReading(game, 85);
+  let seen = null;
+  for (let i = 0; i < 80 && seen === null; i++) {
+    const begun = game.run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
+    const miss = begun.json.fight.log.map((l) => /misses \(\d+ vs AC (\d+)\)/.exec(l.detail ?? '')).find(Boolean);
+    if (miss) seen = Number(miss[1]);
+    game.run('fight', 'flee');
+  }
+  assert.equal(seen, 11);
+});
+
+test('move check uses the tired attack bonus for the sure hit it grants', () => {
+  const game = readyGame();
+  setReading(game, 85);
+  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  const proposal = game.runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
+  writeFileSync(proposal.json.file, 'export function solve(a, b) { return a + b; }');
+  const won = game.run('move', 'check', String(proposal.json.moveId));
+  assert.equal(won.json.moveStatus, 'won');
+  const db = game.db();
+  const detail = db.prepare("SELECT detail FROM fight_log WHERE actor = 'hero' AND action = 'attack'").get().detail;
+  const total = Number(/\((\d+) vs AC/.exec(detail)[1]);
+  const d20 = JSON.parse(db.prepare("SELECT results FROM dice_rolls WHERE context = 'hero attack'").get().results)[0];
+  assert.equal(total - d20, 3);
+});

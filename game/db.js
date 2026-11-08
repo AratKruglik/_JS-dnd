@@ -54,15 +54,16 @@ export function inTransaction(db, fn) {
   }
 }
 
-export function openGameDb(path = defaultGameDbPath()) {
+// A caller that must not wait or write schema (the status line) passes a short timeout and no migrations.
+export function openGameDb(path = defaultGameDbPath(), { busyTimeoutMs = 5000, runMigrations = true } = {}) {
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   // busy_timeout goes first: switching to WAL needs a lock, and parallel script calls
   // would otherwise fail with "database is locked" instead of waiting their turn.
-  db.exec('PRAGMA busy_timeout = 5000');
+  db.exec(`PRAGMA busy_timeout = ${busyTimeoutMs}`);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA synchronous = NORMAL');
   db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
+  if (runMigrations) migrate(db);
   return db;
 }

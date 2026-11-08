@@ -7,6 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { createSave } from '../../game/hero.js';
+import { MIGRATIONS } from '../../game/schema.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const script = join(root, 'game', 'statusline.js');
@@ -83,4 +84,45 @@ test('the project settings point the status line at the script and keep the sess
   assert.match(settings.statusLine.command, /game\/statusline\.js/);
   assert.equal(settings.statusLine.refreshInterval, 60);
   assert.ok(settings.hooks.SessionStart);
+});
+
+test('the bar writes to the first save, the one the CLI plays', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-bar-'));
+  const dbPath = join(dir, 'game.db');
+  const db = openGameDb(dbPath);
+  const first = createSave(db, {});
+  const second = createSave(db, {});
+  spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input: JSON.stringify(payload()), encoding: 'utf8' });
+  assert.deepEqual(db.prepare('SELECT save_id AS s FROM stamina').all().map((r) => r.s), [first]);
+  assert.notEqual(first, second);
+});
+
+test('implausible readings are drawn as unknown and never stored', () => {
+  const bad = [
+    { rate_limits: { five_hour: { used_percentage: 130, resets_at: Math.floor(Date.now() / 1000) + 600 } } },
+    { rate_limits: { five_hour: { used_percentage: 50, resets_at: Date.now() + 3 * 3600 * 1000 } } },
+    { rate_limits: { five_hour: { used_percentage: 50, resets_at: 1e308 } } },
+  ];
+  for (const input of bad) {
+    const { result, db } = runBar(JSON.stringify(input));
+    assert.doesNotMatch(oneLine(result), /Infinity|NaN/);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM stamina WHERE used_percent IS NOT NULL').get().n, 0);
+  }
+});
+
+test('an older database is neither migrated nor waited on by the bar', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-bar-'));
+  const dbPath = join(dir, 'game.db');
+  const db = openGameDb(dbPath);
+  createSave(db, {});
+  db.exec('DROP TABLE stamina');
+  db.exec('DELETE FROM schema_migrations WHERE version = 9');
+  db.exec('BEGIN IMMEDIATE');
+  const started = Date.now();
+  const result = spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input: JSON.stringify(payload()), encoding: 'utf8' });
+  db.exec('ROLLBACK');
+  assert.match(oneLine(result), /62% left/);
+  assert.ok(Date.now() - started < 2500, 'the bar waited on the lock');
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'stamina'").get().n, 0);
+  assert.equal(MIGRATIONS.at(-1).version, 9);
 });

@@ -53,7 +53,7 @@ const USAGE = `Commands:
 
 // Play actions that stop while the hero is collapsed from tiredness. Read-only commands keep working.
 const BLOCKED_WHEN_COLLAPSED = new Set([
-  'go', 'talk', 'roll', 'npc warn', 'fight begin', 'fight attack', 'fight flee', 'move propose', 'move check',
+  'go', 'talk', 'roll', 'honor add', 'honor event', 'fight start', 'fight log', 'fight end', 'npc warn', 'fight begin', 'fight attack', 'fight flee', 'move propose', 'move check',
   'quest start', 'quest check', 'quest judge', 'quest hint', 'link use',
 ]);
 

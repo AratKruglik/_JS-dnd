@@ -51,3 +51,12 @@ test('renderBar shows stamina left on one line, marks estimates, and has no long
   }
   assert.match(renderBar({ usedPercent: 100, resetsAt: now / 1000 - 5, estimated: false }, now), /0% left/);
 });
+
+test('parsePayload rejects percentages outside 0 to 100 and non-positive reset times', () => {
+  const window = (used, resets) => ({ rate_limits: { five_hour: { used_percentage: used, resets_at: resets } } });
+  assert.deepEqual(parsePayload(window(0, 5)), { usedPercent: 0, resetsAt: 5 });
+  assert.deepEqual(parsePayload(window(100, 5)), { usedPercent: 100, resetsAt: 5 });
+  for (const [used, resets] of [[-1, 5], [100.1, 5], [130, 5], [10, 0], [10, -4], [1e308, 5], [10, 1e308]]) {
+    assert.equal(parsePayload(window(used, resets)), null, `${used} ${resets}`);
+  }
+});

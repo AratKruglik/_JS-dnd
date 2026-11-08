@@ -18,9 +18,8 @@ function line() {
   const fromPayload = reading ? renderBar({ ...reading, estimated: false }, now) : 'STAMINA unknown';
   if (!existsSync(defaultGameDbPath())) return fromPayload;
   try {
-    const db = openGameDb();
-    // A status line must not wait on a busy game command.
-    db.exec('PRAGMA busy_timeout = 300');
+    // A status line must not wait on a busy game command or change the schema.
+    const db = openGameDb(undefined, { busyTimeoutMs: 300, runMigrations: false });
     const save = db.prepare('SELECT id FROM saves ORDER BY id LIMIT 1').get();
     if (!save) return fromPayload;
     if (reading) recordReading(db, save.id, reading, now);

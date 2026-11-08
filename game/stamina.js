@@ -30,7 +30,9 @@ export function parsePayload(payload) {
   const window = payload?.rate_limits?.five_hour;
   if (window === null || typeof window !== 'object') return null;
   const { used_percentage: usedPercent, resets_at: resetsAt } = window;
-  if (!Number.isFinite(usedPercent) || !Number.isFinite(resetsAt)) return null;
+  if (!Number.isFinite(usedPercent) || usedPercent < 0 || usedPercent > 100) return null;
+  // Epoch seconds. A value in milliseconds or a huge one is a bad payload, not a long window.
+  if (!Number.isFinite(resetsAt) || resetsAt <= 0 || resetsAt >= 1e11) return null;
   return { usedPercent, resetsAt };
 }
 
@@ -48,6 +50,7 @@ export function renderBar({ usedPercent, resetsAt, estimated }, nowMs, width = 1
 }
 
 const FRESH_MS = 15 * 60 * 1000;
+const MAX_RESET_AHEAD_MS = 6 * 60 * 60 * 1000;
 
 // The status line calls this with the real reading. One row per save, no history.
 export function recordReading(db, saveId, { usedPercent, resetsAt }, nowMs = Date.now()) {
@@ -69,13 +72,20 @@ export function touchWindow(db, saveId, nowMs = Date.now()) {
   });
 }
 
-// The real reading while it is fresh and its window is still open, otherwise the estimate from game time.
+// The real reading while its window is still open (marked estimated once it is older than 15 minutes,
+// but still the best data: usage only grows inside a window). With no usable reading, the game-time estimate.
+// A reading from the future or with a reset time more than 6 hours away is not usable.
 export function currentStamina(db, saveId, nowMs = Date.now()) {
   const row = db.prepare('SELECT * FROM stamina WHERE save_id = ?').get(saveId);
-  const fresh = row?.used_percent != null && nowMs - row.read_at <= FRESH_MS && row.resets_at * 1000 > nowMs;
+  const usable =
+    row?.used_percent != null &&
+    row.read_at <= nowMs &&
+    row.resets_at * 1000 > nowMs &&
+    row.resets_at * 1000 <= nowMs + MAX_RESET_AHEAD_MS;
+  const fresh = usable && nowMs - row.read_at <= FRESH_MS;
   let usedPercent;
   let resetsAt;
-  if (fresh) {
+  if (usable) {
     ({ used_percent: usedPercent, resets_at: resetsAt } = row);
   } else {
     const started = row?.window_started_at != null && nowMs - row.window_started_at < WINDOW_MS ? row.window_started_at : nowMs;

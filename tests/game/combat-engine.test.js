@@ -234,3 +234,10 @@ test('beginFight and loseHeroTurn use the modifiers for the enemy first turn too
   const after = loseHeroTurn(lost.db, lost.saveId, { rng: script([7, 20], [3, 6]), modifiers: { ac: -3 } });
   assert.equal(after.hero.hp, 9);
 });
+
+test('the hero attack penalty is never applied to the enemy attack roll', () => {
+  const { db, saveId } = ready();
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const state = heroAttack(db, saveId, { rng: script([3, 20], [7, 20]), modifiers: { attack: -10 } });
+  assert.match(state.log.at(-1).detail, /\(10 vs AC 13\)/);
+});
