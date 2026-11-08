@@ -3,6 +3,45 @@
 // term after a JS term. No em-dash or en-dash anywhere. DRAFT until Gogi has reviewed it.
 export default {
   'language.changed': 'Мову змінено на {name}.',
+
+  // Що каже перевірка завдання. {call} це код і лишається як є.
+  'check.timeout.message': 'Твій код працював довше за {seconds} с і був зупинений.',
+  'check.tooMuchOutput.message': 'Твій код вивів забагато тексту.',
+  'check.noResult.message': 'Твій код зупинив програму раніше, ніж перевірка встигла завершитися.',
+  'check.unreadable.message': 'Перевірка дала нечитабельний результат.',
+  'check.fileNotFound.message': 'Файл гравця не знайдено: {path}',
+  'check.neverSettled.message':
+    'Твій код так і не завершився: обіцянка (promise), яку він повернув, ніколи не виконалася, тому перевірка не отримала відповіді.',
+  'check.unknownQuest.message': 'Невідоме завдання "{questId}".',
+  'check.missingSolve.message': 'Твій файл має експортувати функцію з назвою `solve`.',
+  'check.solveThrew.message': '`solve` викинула помилку: {message}',
+  'check.raw.message': '{message}',
+  'check.missingExport.expected': 'експортована функція `{name}`',
+  'check.missingExport.got': '`{name}` має тип {type}',
+  'check.wrongResult.expected': '`{call}` дає {wanted}',
+  'check.wrongResult.got': '`{call}` дала {gave}',
+  'check.outOfRange.expected': '`{call}` дає ціле число від 1 до {max}',
+  'check.outOfRange.got': '`{call}` дала {gave}',
+  'check.allFaces.expected': '600 кидків `rollDie(6)` показують усі шість граней',
+  'check.allFaces.got': 'побачені грані: {faces}',
+  'check.pass.fairDie': 'чесний кубик',
+  'check.pass.loud': 'гучний текст',
+  'check.pass.totals': 'правильні суми',
+  'check.pass.everyTest': 'усі тести пройдено',
+
+  // Перевірка стилю коду.
+  'style.line': 'рядок {line}: {message}',
+  'style.formatting': 'форматування: рядок {line} має виглядати так: "{text}"',
+  'style.notInstalled': 'Інструменти стилю не встановлено. Виконай `npm install` у теці гри.',
+  'style.couldNotRun': 'Перевірку стилю не вдалося запустити.',
+  'style.badLinterResult': 'Перевірка стилю не змогла прочитати результат лінтера.',
+  'style.rule.no-var': 'Не використовуй `var`, обери `let` або `const`.',
+  'style.rule.prefer-const': 'Змінну `{name}` ніколи не перепризначають, тож використай `const`.',
+  'style.rule.eqeqeq': 'Використовуй `{expected}` замість `{actual}`.',
+  'style.rule.no-console': 'Не залишай `console.log` у файлі.',
+  'style.rule.no-eval': 'Не використовуй `eval`.',
+  'style.rule.no-implied-eval': 'Не передавай рядок у `setTimeout` чи `setInterval`: передай функцію.',
+  'style.rule.no-new-func': 'Не створюй функції через `new Function`.',
 };
 
 // What the Master is told about this language. DRAFT until Gogi has reviewed it.

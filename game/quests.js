@@ -7,7 +7,8 @@ import { addHonorEvent, getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
-import { GENERAL_STYLE } from '../quests/style.js';
+import { questText, generalStyle } from '../quests/text/index.js';
+import { DEFAULT_LANGUAGE, effectiveLanguage } from './i18n.js';
 import { checkStyle } from './style-check.js';
 import { getHero } from './hero.js';
 import { worldStatus } from './world-status.js';
@@ -55,19 +56,22 @@ function requireQuestAccess(db, saveId, quest) {
 }
 
 // With a database and a save the quest is gated. Tools that only want the stub can leave them out.
-export function startQuest(questId, { playerDir = defaultPlayerDir(), db, saveId } = {}) {
+export function startQuest(questId, { playerDir = defaultPlayerDir(), db, saveId, lang } = {}) {
   const quest = requireQuest(questId);
   if (db) requireQuestAccess(db, saveId, quest);
+  const language = lang ?? (db ? effectiveLanguage(db, saveId) : DEFAULT_LANGUAGE);
+  const text = questText(quest.id, language);
   mkdirSync(playerDir, { recursive: true });
   const file = join(playerDir, `${quest.id}.js`);
   const created = !existsSync(file);
-  if (created) writeFileSync(file, quest.stub);
+  if (created) writeFileSync(file, text.stub);
   return {
     questId: quest.id,
     file,
     created,
-    brief: quest.brief,
-    style: { general: GENERAL_STYLE, specific: quest.style?.specific ?? [] },
+    title: text.title,
+    brief: text.brief,
+    style: { general: generalStyle(language), specific: text.specific },
   };
 }
 
@@ -79,7 +83,8 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
   const playerPath = join(playerDir, `${quest.id}.js`);
   // Hash first: this is the code the check is about to run. Step 2 must read the same bytes.
   const sha = fileHash(playerPath);
-  const result = runQuestCheck(quest.id, playerPath, { timeoutMs: timeoutMs ?? quest.timeoutMs });
+  const lang = effectiveLanguage(db, saveId);
+  const result = runQuestCheck(quest.id, playerPath, { timeoutMs: timeoutMs ?? quest.timeoutMs, lang });
   const attempt = db
     .prepare(
       'INSERT INTO quest_attempts (save_id, quest_id, created_at, status, expected, got, message, complexity, file_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -92,7 +97,7 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
     ...result,
     next: passed ? 'judge' : 'retry',
     ...(passed ? { tone: toneFor(getHonor(db, saveId)) } : {}),
-    ...(passed && style ? { style: checkStyle(playerPath) } : {}),
+    ...(passed && style ? { style: checkStyle(playerPath, { lang }) } : {}),
   };
 }
 

@@ -8,11 +8,12 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const childEntry = resolve(repoRoot, 'quests', 'run-tests.js');
 
 // Runs the player's exported solve() against hidden tests in a child process. Never throws.
-export function runMoveTests(playerPath, tests, { timeoutMs = 5000 } = {}) {
-  if (!existsSync(playerPath)) return failure('error', `Player file not found: ${playerPath}`);
+export function runMoveTests(playerPath, tests, { timeoutMs = 5000, lang = 'en' } = {}) {
+  if (!existsSync(playerPath)) return failure('error', 'check.fileNotFound.message', { path: playerPath }, lang);
   return runChecked({
     entry: childEntry,
     timeoutMs,
+    lang,
     input: JSON.stringify(tests),
     args: [playerPath],
   });

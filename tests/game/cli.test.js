@@ -1207,3 +1207,45 @@ test('a hero created with Ukrainian names is shown with display names, and Engli
   assert.equal(typedEnglish.status, 0, typedEnglish.stderr);
   assert.equal(typedEnglish.json.hero.raceDisplay, 'напіврослик');
 });
+
+// Every key path of a JSON value, so two answers can be compared by shape and not by text.
+function shape(value, path = '') {
+  if (Array.isArray(value)) return value.length ? shape(value[0], `${path}[]`) : [`${path}[]`];
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .flatMap((key) => shape(value[key], `${path}.${key}`));
+  }
+  return [path];
+}
+
+test('the quest and move answers have the same shape in both languages, and the ids never change', () => {
+  const runIn = (language) => {
+    const game = readyGame();
+    game.run('lang', 'set', language);
+    markSolvedBefore(game.db(), 1, 'string-shout');
+    const list = game.run('quest', 'list').json;
+    const started = game.run('quest', 'start', 'string-shout').json;
+    writeFileSync(started.file, 'export function shout(text) { return text; }\n');
+    const failed = game.run('quest', 'check', 'string-shout').json;
+    writeFileSync(started.file, 'export function shout(text) {\n  return `${text.trim().toUpperCase()}!`;\n}\n');
+    const passed = game.run('quest', 'check', 'string-shout').json;
+    stagedFight(game, 'N1');
+    const proposal = game.runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-').json;
+    writeFileSync(proposal.file, 'export function solve(a, b) { return a + b; }');
+    const moved = game.run('move', 'check', String(proposal.moveId)).json;
+    return { list, started, failed, passed, moved, proposal };
+  };
+  const english = runIn('en');
+  const ukrainian = runIn('uk');
+  for (const name of ['list', 'started', 'failed', 'passed', 'moved', 'proposal']) {
+    const strip = (value) => shape(JSON.parse(JSON.stringify(value, (k, v) => (k === 'log' ? undefined : v))));
+    assert.deepEqual(strip(ukrainian[name]), strip(english[name]), name);
+  }
+  assert.deepEqual(
+    ukrainian.list.quests.map((q) => q.id),
+    english.list.quests.map((q) => q.id),
+  );
+  assert.notEqual(ukrainian.list.quests[0].title, english.list.quests[0].title);
+  assert.match(ukrainian.failed.expected, /дає/);
+});

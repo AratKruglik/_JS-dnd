@@ -21,6 +21,7 @@ import {
 import { checkStyle } from './style-check.js';
 import { join } from 'node:path';
 import { QUESTS } from '../quests/index.js';
+import { questText } from '../quests/text/index.js';
 import { createHeroFromChoices } from './hero.js';
 import {
   ABILITIES,
@@ -335,7 +336,7 @@ function main() {
           ok: true,
           quests: QUESTS.map((q) => ({
             id: q.id,
-            title: q.title,
+            title: questText(q.id, currentLang()).title,
             rung: q.rung,
             complexity: q.complexity,
             file: join(defaultPlayerDir(), `${q.id}.js`),
@@ -353,7 +354,11 @@ function main() {
         arity(rest, 1, 1, 'quest style <id>');
         const quest = QUESTS.find((q) => q.id === rest[0]);
         if (!quest) throw new Error(`Unknown quest "${rest[0]}".`);
-        out({ ok: true, questId: quest.id, ...checkStyle(join(defaultPlayerDir(), `${quest.id}.js`)) });
+        out({
+          ok: true,
+          questId: quest.id,
+          ...checkStyle(join(defaultPlayerDir(), `${quest.id}.js`), { lang: currentLang() }),
+        });
       } else if (sub === 'style-decline') {
         arity(rest, 1, 1, 'quest style-decline <id>');
         out({ ok: true, ...declineStyle(db, currentSaveId(), rest[0]) });

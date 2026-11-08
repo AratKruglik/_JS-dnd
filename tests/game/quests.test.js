@@ -8,6 +8,7 @@ import { startQuest, checkQuest, judgeQuest, logHint, getProgress, revokeSolve }
 import { knockOut } from '../../game/knockouts.js';
 import { talk } from '../../game/world.js';
 import { QUESTS } from '../../quests/index.js';
+import { questText } from '../../quests/text/index.js';
 import { createSave, createHero, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
 import { getHonor, getHonorHistory } from '../../game/honor.js';
@@ -48,7 +49,7 @@ test('startQuest writes the stub once and never overwrites the players work', ()
   const { playerDir } = setup();
   const first = startQuest('dice-roll', { playerDir });
   assert.equal(first.created, true);
-  assert.equal(readFileSync(first.file, 'utf8'), QUESTS[0].stub);
+  assert.equal(readFileSync(first.file, 'utf8'), questText('dice-roll', 'en').stub);
   assert.ok(first.brief.length > 0);
   writeFileSync(first.file, '// my work\n');
   const second = startQuest('dice-roll', { playerDir });

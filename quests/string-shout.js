@@ -1,3 +1,5 @@
+import { missingExport, wrongResult, passed } from './messages.js';
+
 const FIXED = [
   ['hello', 'HELLO!'],
   ['  hi there ', 'HI THERE!'],
@@ -12,30 +14,14 @@ function randomText() {
   return `${' '.repeat(pick(3))}${word}${' '.repeat(pick(3))}`;
 }
 
-const miss = (input, wanted, gave) => ({
-  pass: false,
-  expected: `shout(${JSON.stringify(input)}) gives ${JSON.stringify(wanted)}`,
-  got: `shout(${JSON.stringify(input)}) gave ${JSON.stringify(gave)}`,
-});
-
+// The title, brief, and starter file for this quest are in quests/text.
 export default {
   id: 'string-shout',
-  title: 'Make some noise',
   rung: 1,
   complexity: 1,
-  brief:
-    'Write a function shout(text). It removes spaces from both ends of the text, makes it all capital letters, and puts an exclamation mark on the end.',
-  stub: `// Quest: make some noise.
-// Export shout(text): trim the spaces off both ends, make it ALL CAPS, and add a "!" at the end.
-export function shout(text) {
-  // your code here
-}
-`,
 
   async check(mod) {
-    if (typeof mod.shout !== 'function') {
-      return { pass: false, expected: 'an exported function shout', got: `shout is ${typeof mod.shout}` };
-    }
+    if (typeof mod.shout !== 'function') return missingExport('shout', typeof mod.shout);
     const cases = [...FIXED];
     for (let i = 0; i < 20; i++) {
       const input = randomText();
@@ -43,8 +29,10 @@ export function shout(text) {
     }
     for (const [input, wanted] of cases) {
       const gave = mod.shout(input);
-      if (gave !== wanted) return miss(input, wanted, gave);
+      if (gave !== wanted) {
+        return wrongResult(`shout(${JSON.stringify(input)})`, JSON.stringify(wanted), JSON.stringify(gave));
+      }
     }
-    return { pass: true, expected: 'loud text', got: 'loud text' };
+    return passed('check.pass.loud');
   },
 };

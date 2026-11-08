@@ -12,6 +12,7 @@ import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { addHonorEvent, getHonor } from '../../game/honor.js';
 import { QUESTS } from '../../quests/index.js';
+import { questText } from '../../quests/text/index.js';
 import { freshDb, markSolved } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
@@ -100,7 +101,7 @@ test('stats after a real run: solves, a win, a fall, and the honor and complexit
     stats.tasks.list.map((t) => t.id),
     QUESTS.map((q) => q.id),
   );
-  assert.equal(stats.tasks.list[0].title, QUESTS[0].title);
+  assert.equal(stats.tasks.list[0].title, questText(QUESTS[0].id, 'en').title);
   assert.equal(stats.tasks.list[0].rung, QUESTS[0].rung);
   let running = 0;
   assert.deepEqual(

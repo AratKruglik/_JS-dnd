@@ -2,6 +2,46 @@
 // {name} style placeholders are filled by t() in game/i18n.js. No em-dash or en-dash anywhere.
 export default {
   'language.changed': 'The language is now {name}.',
+
+  // What a quest check says. {call} is code and stays as written. The English wording is exactly what
+  // the game printed before there were two languages.
+  'check.timeout.message': 'Your code ran longer than {seconds} seconds and was stopped.',
+  'check.tooMuchOutput.message': 'Your code printed too much output.',
+  'check.noResult.message': 'Your code stopped the program before the check could finish.',
+  'check.unreadable.message': 'The check produced an unreadable result.',
+  'check.fileNotFound.message': 'Player file not found: {path}',
+  'check.neverSettled.message':
+    'Your code never finished: a promise it returned never settled, so the check had no answer to read.',
+  'check.unknownQuest.message': 'Unknown quest "{questId}".',
+  'check.missingSolve.message': 'Your file must export a function named solve.',
+  'check.solveThrew.message': 'solve threw: {message}',
+  'check.raw.message': '{message}',
+  'check.missingExport.expected': 'an exported function {name}',
+  'check.missingExport.got': '{name} is {type}',
+  'check.wrongResult.expected': '{call} gives {wanted}',
+  'check.wrongResult.got': '{call} gave {gave}',
+  'check.outOfRange.expected': '{call} gives a whole number from 1 to {max}',
+  'check.outOfRange.got': '{call} gave {gave}',
+  'check.allFaces.expected': '600 rolls of rollDie(6) show all six faces',
+  'check.allFaces.got': 'faces seen: {faces}',
+  'check.pass.fairDie': 'a fair die',
+  'check.pass.loud': 'loud text',
+  'check.pass.totals': 'the right totals',
+  'check.pass.everyTest': 'every test passes',
+
+  // The code style check. English shows the linter's own text, these keys exist for the other languages.
+  'style.line': 'line {line}: {message}',
+  'style.formatting': 'formatting: line {line} should read "{text}"',
+  'style.notInstalled': 'Style tools are not installed. Run npm install in the game folder.',
+  'style.couldNotRun': 'The style check could not run.',
+  'style.badLinterResult': 'The style check could not read the linter result.',
+  'style.rule.no-var': 'Unexpected var, use let or const instead.',
+  'style.rule.prefer-const': "'{name}' is never reassigned. Use 'const' instead.",
+  'style.rule.eqeqeq': "Expected '{expected}' and instead saw '{actual}'.",
+  'style.rule.no-console': 'Unexpected console statement.',
+  'style.rule.no-eval': 'eval can be harmful.',
+  'style.rule.no-implied-eval': 'Implied eval. Consider passing a function instead of a string.',
+  'style.rule.no-new-func': 'The Function constructor is eval.',
 };
 
 // What the Master is told about this language (the `lang show` pack grows here in later tasks).

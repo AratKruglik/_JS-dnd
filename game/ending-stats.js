@@ -2,6 +2,8 @@ import { getHero } from './hero.js';
 import { getProgress } from './quests.js';
 import { getSetting } from './world.js';
 import { QUESTS } from '../quests/index.js';
+import { questText } from '../quests/text/index.js';
+import { effectiveLanguage } from './i18n.js';
 
 const MAX_GAP_MS = 30 * 60 * 1000;
 
@@ -73,7 +75,7 @@ export function collectStats(db, saveId) {
         const quest = QUESTS.find((q) => q.id === s.quest_id);
         return {
           id: s.quest_id,
-          title: quest?.title ?? s.quest_id,
+          title: questText(s.quest_id, effectiveLanguage(db, saveId))?.title ?? s.quest_id,
           rung: quest?.rung ?? null,
           complexity: s.complexity,
           solvedAt: s.solved_at,

@@ -8,6 +8,8 @@ import { look, go, talk, setSetting, fillWorld } from '../../game/world.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
+import { setLanguage } from '../../game/i18n.js';
+import { questText } from '../../quests/text/index.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { freshDb } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
@@ -155,4 +157,15 @@ test('the stronghold shows both the captain and the final boss', () => {
     ['N6', 'N7'],
   );
   assert.equal(talk(db, saveId, 'N7').offer, null);
+});
+
+test('the quest an NPC offers is told in the language of the save', () => {
+  const { db, saveId } = ready();
+  assert.equal(talk(db, saveId, 'N1').offer.title, questText('dice-roll', 'en').title);
+  setLanguage(db, saveId, 'uk');
+  const offer = talk(db, saveId, 'N1').offer;
+  assert.deepEqual(
+    [offer.questId, offer.title, offer.brief],
+    ['dice-roll', questText('dice-roll', 'uk').title, questText('dice-roll', 'uk').brief],
+  );
 });

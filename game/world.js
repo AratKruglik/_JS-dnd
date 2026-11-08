@@ -7,6 +7,7 @@ import { effectiveLanguage } from './i18n.js';
 import { worldStatus } from './world-status.js';
 import { SKELETON } from '../world/skeleton.js';
 import { QUESTS } from '../quests/index.js';
+import { questText } from '../quests/text/index.js';
 
 const SOURCES = ['offered', 'customized', 'written'];
 const now = () => new Date().toISOString();
@@ -209,7 +210,8 @@ export function talk(db, saveId, npcSlot) {
     const earlierSolved = QUESTS.slice(0, index).every((q) => solved.includes(q.id));
     if (earlierSolved && !solved.includes(spot.questId)) {
       const quest = QUESTS[index];
-      offer = { questId: quest.id, title: quest.title, brief: quest.brief };
+      const text = questText(quest.id, effectiveLanguage(db, saveId));
+      offer = { questId: quest.id, title: text.title, brief: text.brief };
     }
   }
   return { npc: { slot: npc.slot, name: npc.name, description: npc.description, voice: npc.voice }, offer };

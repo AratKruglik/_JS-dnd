@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { QUESTS } from '../../quests/index.js';
+import { questText } from '../../quests/text/index.js';
 import { runQuestCheck } from '../../game/quest-runner.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), 'solutions');
@@ -19,8 +20,11 @@ test('the registry lists the three quests in order with sane metadata', () => {
   for (const quest of QUESTS) {
     assert.equal(quest.file, undefined, 'the path depends on the player folder, so it is not stored on the quest');
     assert.ok(quest.complexity >= 1 && quest.complexity <= 5);
-    assert.ok(quest.title && quest.brief);
-    assert.match(quest.stub, /export/);
+    for (const lang of ['en', 'uk']) {
+      const text = questText(quest.id, lang);
+      assert.ok(text.title && text.brief, `${quest.id} has no ${lang} title or brief`);
+      assert.match(text.stub, /export/);
+    }
   }
 });
 

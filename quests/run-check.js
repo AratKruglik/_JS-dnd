@@ -1,6 +1,7 @@
 // Child process entry. Loads one quest and the player's file, runs the quest's check, and
 // prints exactly one result line prefixed with a token the parent chose. Player output can
-// never forge that line because it does not know the token.
+// never forge that line because it does not know the token. Messages travel as { key, params }
+// parts, and the parent renders them in the language of the save.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,6 +14,8 @@ const firstLine = (error) =>
   String(error?.message ?? error)
     .split('\n')[0]
     .trim();
+const part = (key, params = {}) => ({ key, params });
+const raw = (error) => part('check.raw.message', { message: firstLine(error) });
 
 function emit(result) {
   const line = `\n${token} ${JSON.stringify({ expected: '', got: '', message: '', ...result })}\n`;
@@ -22,35 +25,31 @@ function emit(result) {
 
 // If the event loop runs dry before a result was printed, something player code returned (or a
 // top-level await in their file) will never settle. Say so, instead of exiting without a word.
-process.once('beforeExit', () =>
-  emit({
-    status: 'error',
-    message: 'Your code never finished: a promise it returned never settled, so the check had no answer to read.',
-  }),
-);
+process.once('beforeExit', () => emit({ status: 'error', message: part('check.neverSettled.message') }));
 
 try {
   const registry = await import(questsModule ? pathToFileURL(resolve(questsModule)).href : './index.js');
   const quest = registry.getQuest(questId);
   if (!quest) {
-    emit({ status: 'error', message: `Unknown quest "${questId}".` });
+    emit({ status: 'error', message: part('check.unknownQuest.message', { questId }) });
   } else {
     let mod;
     try {
       mod = await import(pathToFileURL(resolve(playerPath)).href);
     } catch (error) {
-      emit({ status: 'error', message: firstLine(error) });
+      emit({ status: 'error', message: raw(error) });
     }
     if (mod) {
       const result = await quest.check(mod);
+      // A part is a { key, params } object. A plain string (a test quest) is passed through as it is.
       emit({
         status: result.pass ? 'pass' : 'fail',
-        expected: String(result.expected),
-        got: String(result.got),
+        expected: result.expected,
+        got: result.got,
         message: result.message ?? '',
       });
     }
   }
 } catch (error) {
-  emit({ status: 'error', message: firstLine(error) });
+  emit({ status: 'error', message: raw(error) });
 }

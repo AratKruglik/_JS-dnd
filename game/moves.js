@@ -4,6 +4,7 @@ import { inTransaction } from './db.js';
 import { openFight, heroAttack, loseHeroTurn } from './combat-engine.js';
 import { runMoveTests, validateMoveProblem } from './move-runner.js';
 import { defaultPlayerDir } from './quests.js';
+import { effectiveLanguage } from './i18n.js';
 
 const now = () => new Date().toISOString();
 const comment = (text) =>
@@ -79,7 +80,11 @@ export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), 
   // The player's code can run for seconds, so it runs outside the lock. The move is read again
   // under the lock before anything is applied, so two checks at once cannot both count.
   const tests = JSON.parse(readMove().tests);
-  const check = runMoveTests(join(playerDir, `move-${moveId}.js`), tests, timeoutMs ? { timeoutMs } : undefined);
+  const lang = effectiveLanguage(db, saveId);
+  const check = runMoveTests(join(playerDir, `move-${moveId}.js`), tests, {
+    ...(timeoutMs ? { timeoutMs } : {}),
+    lang,
+  });
   const won = check.status === 'pass';
   return inTransaction(db, () => {
     readMove();
