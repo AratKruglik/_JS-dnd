@@ -253,4 +253,11 @@ CREATE TABLE style_declines (
 ALTER TABLE quest_solves ADD COLUMN revoked_at TEXT;
 `,
   },
+  {
+    // The language the player chose for this save. Null means not chosen yet, and behaves as English.
+    version: 12,
+    sql: `
+ALTER TABLE saves ADD COLUMN language TEXT CHECK (language IN ('en', 'uk'));
+`,
+  },
 ];

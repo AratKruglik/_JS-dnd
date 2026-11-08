@@ -30,6 +30,7 @@ import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './com
 import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 import { touchWindow, currentStamina } from './stamina.js';
+import { LANGUAGES, LANGUAGE_NAMES, getLanguage, setLanguage, effectiveLanguage, t } from './i18n.js';
 import { buildEnding } from './ending.js';
 
 const USAGE = `Commands:
@@ -57,6 +58,7 @@ const USAGE = `Commands:
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
   link check <url> | link use <questId> <url>
   stamina show
+  lang show | lang set <en|uk>
   integrity check`;
 
 // Play actions that stop while the hero is collapsed from tiredness. Read-only commands keep working.
@@ -423,6 +425,28 @@ function main() {
       if (sub !== 'build') fail(USAGE);
       arity(rest, 0, 0, 'ending build');
       out({ ok: true, ...buildEnding(db, currentSaveId()) });
+      break;
+    }
+    case 'lang': {
+      if (sub === 'show') {
+        arity(rest, 0, 0, 'lang show');
+        const saveId = currentSaveId();
+        out({
+          ok: true,
+          language: getLanguage(db, saveId),
+          effective: effectiveLanguage(db, saveId),
+          available: LANGUAGES.map((code) => ({ code, name: LANGUAGE_NAMES[code] })),
+        });
+      } else if (sub === 'set') {
+        arity(rest, 1, 1, 'lang set <en|uk>');
+        setLanguage(db, currentSaveId(), rest[0]);
+        out({
+          ok: true,
+          language: rest[0],
+          effective: rest[0],
+          message: t(rest[0], 'language.changed', { name: LANGUAGE_NAMES[rest[0]] }),
+        });
+      } else fail(USAGE);
       break;
     }
     case 'stamina': {

@@ -1071,3 +1071,33 @@ test('tampering with the dice blocks all seven combat commands with exit 2', () 
   ];
   for (const args of commands) assert.equal(game.run(...args).status, 2, args.join(' '));
 });
+
+test('lang show and lang set work, reject bad input, and are not blocked by a collapse', () => {
+  const game = readyGame();
+  const shown = game.run('lang', 'show').json;
+  assert.deepEqual([shown.language, shown.effective], [null, 'en']);
+  assert.deepEqual(shown.available, [
+    { code: 'en', name: 'English' },
+    { code: 'uk', name: 'Українська' },
+  ]);
+  const set = game.run('lang', 'set', 'uk');
+  assert.equal(set.status, 0, set.stderr);
+  assert.deepEqual([set.json.language, set.json.effective], ['uk', 'uk']);
+  assert.match(set.json.message, /Мову змінено/);
+  assert.equal(game.run('lang', 'show').json.language, 'uk');
+  for (const args of [
+    ['lang'],
+    ['lang', 'set'],
+    ['lang', 'set', 'de'],
+    ['lang', 'set', 'uk', 'extra'],
+    ['lang', 'show', 'x'],
+    ['lang', 'nope'],
+  ]) {
+    assert.equal(game.run(...args).status, 1, args.join(' '));
+  }
+  assert.equal(game.run('lang', 'show').json.language, 'uk');
+  assert.match(game.run().stderr, /lang show/);
+  setReading(game, 99);
+  assert.equal(game.run('lang', 'show').status, 0);
+  assert.equal(game.run('lang', 'set', 'en').status, 0);
+});
