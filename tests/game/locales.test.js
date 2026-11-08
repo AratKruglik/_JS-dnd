@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import en from '../../game/locales/en.js';
-import uk from '../../game/locales/uk.js';
+import uk, { pack as ukPack } from '../../game/locales/uk.js';
+import { pack as enPack } from '../../game/locales/en.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -97,5 +98,67 @@ test('the catalog files themselves have no long dash', () => {
     const text = readFileSync(join(root, file), 'utf8');
     for (const code of [0x2013, 0x2014])
       assert.ok(!text.includes(String.fromCharCode(code)), `${file} has a long dash`);
+  }
+});
+
+// Every string inside a pack, wherever it sits.
+function packStrings(value) {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap(packStrings);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(packStrings);
+  return [];
+}
+
+test('both packs have the same shape: glossary, roast, bannedPhrases, voiceTips', () => {
+  for (const pack of [enPack, ukPack]) {
+    assert.deepEqual(Object.keys(pack).sort(), ['bannedPhrases', 'glossary', 'roast', 'voiceTips']);
+    assert.deepEqual(Object.keys(pack.roast).sort(), ['fairGame', 'neverAllowed', 'rule', 'tone']);
+    assert.ok(pack.voiceTips.length >= 4);
+    assert.ok(pack.roast.fairGame.length >= 3 && pack.roast.neverAllowed.length >= 3);
+    for (const entry of pack.glossary) assert.deepEqual(Object.keys(entry).sort(), ['english', 'term']);
+  }
+  assert.deepEqual(enPack.glossary, []);
+});
+
+test('the Ukrainian glossary covers the core JS terms the curriculum teaches', () => {
+  const english = new Set(ukPack.glossary.map((e) => e.english));
+  for (const term of [
+    'variable',
+    'string',
+    'array',
+    'object',
+    'function',
+    'loop',
+    'scope',
+    'closure',
+    'callback',
+    'promise',
+    'event loop',
+    'error',
+  ]) {
+    assert.ok(english.has(term), `the glossary has no entry for "${term}"`);
+  }
+  assert.equal(
+    new Set(ukPack.glossary.map((e) => e.term)).size,
+    ukPack.glossary.length,
+    'a Ukrainian term is listed twice',
+  );
+});
+
+test('Ukrainian pack text is Cyrillic, and each glossary term is Ukrainian with an English counterpart', () => {
+  const textFields = [ukPack.roast, ukPack.voiceTips, ukPack.glossary.map((e) => e.term)];
+  for (const text of packStrings(textFields)) {
+    assert.doesNotMatch(withoutAllowedLatin(text), /[A-Za-z]/, text);
+  }
+  for (const { term, english } of ukPack.glossary) {
+    assert.match(english, /^[A-Za-z][A-Za-z /.]*$/, english);
+    assert.match(term, /\p{Script=Cyrillic}/u, term);
+  }
+});
+
+test('no pack string has an em-dash or an en-dash', () => {
+  const dashes = [String.fromCharCode(0x2013), String.fromCharCode(0x2014)];
+  for (const text of packStrings([enPack, ukPack])) {
+    for (const dash of dashes) assert.ok(!text.includes(dash), text);
   }
 });

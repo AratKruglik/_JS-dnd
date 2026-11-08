@@ -1,8 +1,15 @@
-import en from './locales/en.js';
-import uk from './locales/uk.js';
+import en, { pack as enPack } from './locales/en.js';
+import uk, { pack as ukPack } from './locales/uk.js';
 
 export const LANGUAGES = ['en', 'uk'];
 export const DEFAULT_LANGUAGE = 'en';
+
+// What the Master is told about a language: glossary, roast rules, banned phrases, voice tips.
+const PACKS = { en: enPack, uk: ukPack };
+export const packFor = (lang) => {
+  if (!PACKS[lang]) throw new RangeError(`Unknown language "${lang}".`);
+  return PACKS[lang];
+};
 
 // Each language's name in its own language, so a player can find theirs.
 export const LANGUAGE_NAMES = { en: 'English', uk: 'Українська' };

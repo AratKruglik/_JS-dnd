@@ -240,3 +240,27 @@ test('play.md says a revoke also takes back the bonus the solve paid', () => {
   const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
   assert.match(quests, /takes back the bonus/i);
 });
+
+test('play.md puts the language first at the start and asks only when none is chosen', () => {
+  const start = play.slice(play.indexOf('## Start'), play.indexOf('## Onboarding'));
+  assert.ok(start.includes('node game/cli.js lang show'));
+  assert.ok(start.indexOf('lang show') < start.indexOf('world status'));
+  assert.match(start, /language.{0,20}null/i);
+  assert.ok(start.includes('node game/cli.js lang set'));
+});
+
+test('play.md has a Language section with the rules the Master must follow', () => {
+  assert.match(play, /## Language/);
+  const language = play.slice(
+    play.indexOf('## Language'),
+    play.indexOf('## Ground rules') > play.indexOf('## Language') ? play.indexOf('## Ground rules') : undefined,
+  );
+  assert.match(language, /pack/i);
+  assert.match(language, /only that language/i);
+  assert.match(language, /never mix/i);
+  assert.match(language, /code, file names, and commands stay (in )?English/i);
+  assert.match(language, /quote[^.]*exactly|exactly as/i);
+  assert.match(language, /script errors/i);
+  assert.match(language, /stored (world )?text/i);
+  assert.match(language, /first (use|time)[^.]*quest/i);
+});

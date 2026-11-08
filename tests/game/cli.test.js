@@ -1118,3 +1118,26 @@ test('voice lint works before there is any save, in English', () => {
   const { run } = install();
   assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json.hits, ['great question']);
 });
+
+test('lang show hands the Master the pack of the language in use, and the pack follows lang set', () => {
+  const game = readyGame();
+  const english = game.run('lang', 'show').json.pack;
+  assert.deepEqual(Object.keys(english).sort(), ['bannedPhrases', 'glossary', 'roast', 'voiceTips']);
+  assert.ok(english.bannedPhrases.includes('great question'));
+  assert.deepEqual(english.glossary, []);
+
+  game.run('lang', 'set', 'uk');
+  const ukrainian = game.run('lang', 'show').json.pack;
+  assert.ok(ukrainian.bannedPhrases.includes('чудове запитання'));
+  assert.ok(ukrainian.glossary.some((e) => e.english === 'closure'));
+  assert.match(ukrainian.roast.rule, /нещадно/);
+
+  game.run('lang', 'set', 'en');
+  assert.ok(game.run('lang', 'show').json.pack.bannedPhrases.includes('great question'));
+});
+
+test('lang set returns the pack too, so the Master has it the moment the language changes', () => {
+  const game = readyGame();
+  const set = game.run('lang', 'set', 'uk').json;
+  assert.ok(set.pack.glossary.length > 10);
+});

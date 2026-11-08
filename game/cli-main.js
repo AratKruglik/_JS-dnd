@@ -30,7 +30,7 @@ import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './com
 import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 import { touchWindow, currentStamina } from './stamina.js';
-import { LANGUAGES, LANGUAGE_NAMES, getLanguage, setLanguage, effectiveLanguage, t } from './i18n.js';
+import { LANGUAGES, LANGUAGE_NAMES, getLanguage, setLanguage, effectiveLanguage, packFor, t } from './i18n.js';
 import { buildEnding } from './ending.js';
 
 const USAGE = `Commands:
@@ -436,6 +436,7 @@ function main() {
           language: getLanguage(db, saveId),
           effective: effectiveLanguage(db, saveId),
           available: LANGUAGES.map((code) => ({ code, name: LANGUAGE_NAMES[code] })),
+          pack: packFor(effectiveLanguage(db, saveId)),
         });
       } else if (sub === 'set') {
         arity(rest, 1, 1, 'lang set <en|uk>');
@@ -445,6 +446,7 @@ function main() {
           language: rest[0],
           effective: rest[0],
           message: t(rest[0], 'language.changed', { name: LANGUAGE_NAMES[rest[0]] }),
+          pack: packFor(rest[0]),
         });
       } else fail(USAGE);
       break;
