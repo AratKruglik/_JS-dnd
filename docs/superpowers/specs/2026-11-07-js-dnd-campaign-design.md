@@ -157,7 +157,9 @@ If the player changes the dice code, they lose all reputation, drop to level 1, 
 
 ### 5.10 Ending [Gogi]
 
-A stats page built from DB queries when opened. It shows hours spent, enemies defeated, JS subjects learned, tasks solved, complexity progression, and honor progression over time. It is hidden deep in the project code and revealed only at the end. "Hidden" can only mean not advertised, since the repo is public and anyone can open it [My guess, Gogi confirmed]. It likely needs a tiny local server to read the DB file [My guess]. The certificate is parked.
+A stats page built from DB queries. It shows hours spent, enemies defeated, JS subjects learned, tasks solved, complexity progression, and honor progression over time. It is hidden deep in the project code and revealed only at the end. "Hidden" can only mean not advertised, since the repo is public and anyone can open it [My guess, Gogi confirmed]. The certificate is parked.
+
+Decided in Plan 7 [Gogi]: the ending needs every quest solved and a final boss (a seventh NPC) beaten. The page is one static HTML file compiled by a script, not a server. Hours spent are estimated from existing timestamps. JS subjects learned was skipped for now.
 
 ## 6. Technical decisions
 

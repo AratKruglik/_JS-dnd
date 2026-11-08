@@ -4,7 +4,7 @@ A D&D-style adventure you play in your terminal, with your own AI model as the D
 
 Built for JS beginners who want to learn programming but are tired of gamified quizzes. Finish the campaign and you have solid JS fundamentals up to async: the event loop, timeouts, and fetch.
 
-> **Status: early. The game is not playable yet.** What exists today is the project foundation: the design, the tracking setup, and the dev tooling. The game itself starts with Plan 2. See the [feature list](#feature-list) for what is done and what is not.
+> **Status: all seven build plans are done and tested, but no one has played a full campaign yet.** The engine, hero, world, quests, combat, stamina bar, and ending are built. Only three starter quests exist, so the curriculum up to async is still content to write, and the live checks (a real `/play` run and the stamina bar in a fresh Claude Code session) are still open. See the [feature list](#feature-list) for what is done and what is not.
 
 ## How it will play
 
@@ -144,11 +144,11 @@ The work is split into seven plans, each producing something testable on its own
 
 1. Foundation and tracking (done)
 2. Game DB and script layer (done)
-3. Quest engine
-4. World and hero generation
-5. Combat
-6. Stamina bar
-7. Ending stats page
+3. Quest engine (done)
+4. World and hero generation (done)
+5. Combat (done)
+6. Stamina bar (done, live check open)
+7. Ending stats page (done)
 
 Each session opens by reading the dev notes and the board, and closes by writing the current task state and likely next steps back to the dev notes DB.
 
