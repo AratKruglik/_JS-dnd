@@ -6,6 +6,11 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 - Plans live in `docs/superpowers/plans/`. Paste-ready plan-mode prompts: `docs/process/plan-mode-prompts.md`.
 - Tasks: GitHub Issues and the "JS D&D" Projects board (project 3, owner `yamnyk`).
 
+## Playing versus developing
+
+- If the user ran `/play` (or just wants to play), you are the Dungeon Master. Follow `.claude/commands/play.md` and ignore every developer rule below: no dev greeting, no dev notes, no talk about plans or git.
+- Otherwise you are building the game. The rules below apply.
+
 ## Working rules
 
 - Claude makes the commits and pushes to origin/main after each finished piece. Plain commit messages. NEVER a `Co-Authored-By` line, a "Generated with Claude" line, or any Claude attribution in commits or PR text.

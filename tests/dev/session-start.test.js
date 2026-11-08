@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +12,21 @@ const hook = join(root, 'dev', 'session-start.js');
 const runHook = (dbPath, cwd) =>
   spawnSync('node', [hook], { cwd, env: { ...process.env, JSDND_DEV_DB: dbPath }, encoding: 'utf8' });
 
-test('session-start on a fresh DB prints no tasks recorded and exits 0', () => {
+test('session-start prints nothing and exits 0 when no dev DB exists (a player cloning the repo)', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'jsdnd-ss-'));
-  const result = runHook(join(tmp, 'fresh.db'), tmp);
+  const missing = join(tmp, 'fresh.db');
+  const result = runHook(missing, tmp);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  assert.equal(existsSync(missing), false, 'the hook must not create a dev DB for a player');
+});
+
+test('session-start on an existing empty dev DB prints no tasks recorded and exits 0', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'jsdnd-ss-'));
+  const dbPath = join(tmp, 'dev.db');
+  const env = { ...process.env, JSDND_DEV_DB: dbPath };
+  assert.equal(spawnSync('node', [join(root, 'dev', 'cli.js'), 'status'], { cwd: tmp, env }).status, 0);
+  const result = runHook(dbPath, tmp);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /No tasks recorded yet/);
 });
@@ -56,7 +68,10 @@ test('session-start with a configured board prints the board items', () => {
 test('session-start works from a different cwd', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'jsdnd-ss-'));
   const elsewhere = mkdtempSync(join(tmpdir(), 'jsdnd-elsewhere-'));
-  const result = runHook(join(tmp, 'dev.db'), elsewhere);
+  const dbPath = join(tmp, 'dev.db');
+  const env = { ...process.env, JSDND_DEV_DB: dbPath };
+  assert.equal(spawnSync('node', [join(root, 'dev', 'cli.js'), 'status'], { cwd: tmp, env }).status, 0);
+  const result = runHook(dbPath, elsewhere);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Confirmed state/);
 });

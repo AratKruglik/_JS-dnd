@@ -62,10 +62,10 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Honor and reputation                          | 3     | Done    | Red Dead Redemption 2 style, logged as timestamped events. Default deltas live in one table (`game/honor-rules.js`).                                                                                       |
 | Gentle review or roasting by honor level      | 3     | Done    | Starts only after step 1 passes. Roasting below honor 0, gentle at 0 and above.                                                                                                                 |
 | Curriculum from strings to async              | 3     | In progress | Three rung 1 starter quests exist. The rest is content for later. Ordering is a guess for now.                                                                                                                     |
-| Hero creation with race, class, and point buy | 4     | Planned | Point buy numbers still need to be verified                                                                                                     |
-| Setting choice and world generation           | 4     | Planned | Same size for everyone, unique setting                                                                                                          |
-| Master voice per setting                      | 4     | Planned | Needs a voice framework and a list of AI-speak to ban                                                                                           |
-| Choice-prompt play UI                         | 4     | Planned | Claude specific. Prompts allow 2 to 4 options, so big exit lists need paging.                                                                   |
+| Hero creation with race, class, and point buy | 4     | Done    | 5e point buy (27 points) plus race bonuses, checked against public 5e sources. Custom race or class allowed with a description.                                                                                                     |
+| Setting choice and world generation           | 4     | Done    | A fixed skeleton of 6 locations and 6 NPCs lives in the repo. The Master only fills in names, descriptions, and voices.                                                                                                          |
+| Master voice per setting                      | 4     | In progress | A banned AI-speak list is enforced when the Master saves the world. Whether the writing actually sounds right can only be judged by playing.                                                                                           |
+| Choice-prompt play UI                         | 4     | Done    | The /play command drives Claude choice prompts. Every location has 4 exits or fewer, so no paging is needed. Claude specific.                                                                   |
 | D&D combat                                    | 5     | Planned | NPC warnings first, fights can sit inside quests                                                                                                |
 | JS moves in combat                            | 5     | Planned | Fancy moves trigger a hard JS problem. The Master generates it.                                                                                 |
 | Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice file is checked before every command. A change resets you to level 1 in the same world and keeps your history. |
@@ -109,6 +109,8 @@ node game/cli.js link check https://developer.mozilla.org/en-US/docs/Web/JavaScr
 node game/cli.js honor event swearing "cursed at the baker"
 ```
 
+To play, open this folder in Claude Code and type `/play`. Claude becomes the Dungeon Master and walks you through making a hero, choosing a setting, and exploring a world made just for you. The scripts above are what it uses behind the scenes.
+
 Don't edit `game/dice.js`. The game fingerprints it, and a changed or missing dice file resets your hero to level 1. (Developers who change it on purpose re-seal it with `node game/seal.js`.)
 
 `node dev/cli.js board-config yamnyk 3` points the dev tooling at the GitHub board. The dev notes DB lives in `.dev/` and is not committed.
@@ -123,6 +125,8 @@ Don't edit `game/dice.js`. The game fingerprints it, and a changed or missing di
 | `game/`                   | The game's data layer: DB, dice, honor, fights, tamper check, and the script CLI |
 | `data/`                   | The local game DB (gitignored, created by `setup.sh`)                            |
 | `quests/`                 | The fixed quests: briefs, starter stubs, and checks                              |
+| `world/` | The fixed world skeleton: 6 locations, 6 NPCs, and how they connect |
+| `.claude/commands/` | `/play`: the Dungeon Master instructions |
 | `player/`                 | Your quest solutions (gitignored, created when you start a quest)                |
 | `dev/`                    | Dev tooling: notes DB, CLI, board reader, session start hook                     |
 | `dev/github/`             | Script that seeds labels, the board, and issues                                  |

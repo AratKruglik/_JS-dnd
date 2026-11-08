@@ -1,7 +1,12 @@
-import { openDevDb } from './db.js';
+import { existsSync } from 'node:fs';
+import { openDevDb, defaultDevDbPath } from './db.js';
 import { getState, getMeta } from './notes.js';
 import { fetchBoard } from './board.js';
 import { renderGreeting } from './greeting.js';
+
+// No dev DB means this is a player's clone, not the developer's machine: print nothing and
+// do not create one, so a /play session is not cluttered with developer output.
+if (!existsSync(defaultDevDbPath())) process.exit(0);
 
 try {
   const db = openDevDb();
