@@ -141,3 +141,25 @@ test('buildEnding writes the page only when the ending is unlocked', () => {
   assert.match(html, /Bilbo/);
   assert.match(html, /3 of 3/);
 });
+
+test('a boss fight that was lost, fled, or abandoned never unlocks the ending', () => {
+  const { db, saveId, solveAll } = ready();
+  solveAll();
+  for (const outcome of ['lost', 'fled', 'abandoned']) {
+    db.prepare(
+      "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome, npc_slot) VALUES (?, ?, ?, 'x', ?, 'N7')",
+    ).run(saveId, new Date().toISOString(), new Date().toISOString(), outcome);
+    const status = endingStatus(db, saveId);
+    assert.deepEqual([status.bossDefeated, status.unlocked], [false, false], outcome);
+  }
+});
+
+test('a boss win in another save does not unlock this one', () => {
+  const { db, saveId, solveAll } = ready();
+  solveAll();
+  const other = createSave(db, {});
+  db.prepare(
+    "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome, npc_slot) VALUES (?, ?, ?, 'x', 'won', 'N7')",
+  ).run(other, new Date().toISOString(), new Date().toISOString());
+  assert.equal(endingStatus(db, saveId).bossDefeated, false);
+});

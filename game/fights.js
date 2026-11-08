@@ -25,6 +25,15 @@ export function logFightStep(db, fightId, { actor, action, rollId = null, detail
   });
 }
 
+// The low level fight commands are for plain logging. A combat fight (one with enemy HP) belongs to
+// the fight engine: closing it by hand would skip the dice, the honor, and the knockout.
+export function assertLegacyFight(db, fightId) {
+  const fight = db.prepare('SELECT enemy_hp FROM fights WHERE id = ?').get(fightId);
+  if (fight && fight.enemy_hp !== null) {
+    throw new Error(`Fight ${fightId} is a combat fight. Use fight attack or fight flee, not the low level fight commands.`);
+  }
+}
+
 export function endFight(db, fightId, outcome) {
   const result = db
     .prepare('UPDATE fights SET ended_at = ?, outcome = ? WHERE id = ? AND ended_at IS NULL')

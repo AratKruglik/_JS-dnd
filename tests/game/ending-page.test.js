@@ -131,3 +131,9 @@ test('the chart label is escaped inside the title and the text summary', () => {
   const svg = lineChart([{ x: 1, y: 1 }], { label: '<b>x</b>' });
   assert.ok(!svg.includes('<b>'));
 });
+
+test('digits use lining figures and five stat cards fit one row on a wide screen', () => {
+  const html = renderPage(stats());
+  assert.match(html, /font-variant-numeric: lining-nums/);
+  assert.match(html, /minmax\(130px, 1fr\)/);
+});

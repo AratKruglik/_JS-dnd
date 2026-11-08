@@ -61,12 +61,12 @@ const CSS = `
 :root { --bg: #fbfaf7; --fg: #1f1d1a; --muted: #6b665e; --card: #ffffff; --line: #d9d4ca; --accent: #8a4b14; --mark: #b3261e; }
 @media (prefers-color-scheme: dark) { :root { --bg: #16140f; --fg: #efe9dc; --muted: #a39a89; --card: #1f1c15; --line: #3a352a; --accent: #e0a458; --mark: #ff8a80; } }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--fg); font: 16px/1.5 Georgia, 'Times New Roman', serif; }
+body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--fg); font: 16px/1.5 Georgia, 'Times New Roman', serif; font-variant-numeric: lining-nums; }
 main { max-width: 760px; margin: 0 auto; }
 h1 { font-size: 2rem; margin: 0 0 4px; }
 h2 { font-size: 1.15rem; margin: 32px 0 8px; }
 .sub, .muted { color: var(--muted); fill: var(--muted); font-size: 0.9rem; }
-.grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 20px; }
+.grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 20px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
 .stat b { display: block; font-size: 1.6rem; color: var(--accent); }
 .stat span { color: var(--muted); font-size: 0.9rem; }

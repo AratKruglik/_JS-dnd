@@ -743,7 +743,7 @@ test('move check uses the tired attack bonus for the sure hit it grants', () => 
   assert.equal(total - d20, 3);
 });
 
-function unlockEnding(game) {
+function solveAllQuests(game) {
   const db = game.db();
   const playerDir = game.env.JSDND_PLAYER_DIR;
   mkdirSync(playerDir, { recursive: true });
@@ -752,6 +752,11 @@ function unlockEnding(game) {
     checkQuest(db, 1, quest.id, { playerDir, timeoutMs: 15000 });
     judgeQuest(db, 1, quest.id, 'clean', null, { playerDir });
   }
+}
+
+function unlockEnding(game) {
+  solveAllQuests(game);
+  const db = game.db();
   db.prepare("UPDATE heroes SET location_slot = 'L6' WHERE save_id = 1").run();
   const low = () => 0.01;
   beginFight(db, 1, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: low });
@@ -781,9 +786,32 @@ test('ending build refuses while locked, builds the page when unlocked, and is n
   const built = game.run('ending', 'build');
   assert.equal(built.status, 0, built.stderr);
   assert.match(readFileSync(built.json.file, 'utf8'), /Bilbo/);
+  assert.equal(game.run('ending', 'build', 'extra').status, 1);
+  assert.equal(game.run('ending', 'build', '--force').status, 1);
 
   const usage = game.run();
   assert.doesNotMatch(usage.stderr, /ending/i);
   setReading(game, 99);
   assert.equal(game.run('ending', 'build').status, 0);
+});
+
+test('the legacy fight end cannot close a combat fight, so the boss cannot be won on paper', () => {
+  const game = readyGame();
+  solveAllQuests(game);
+  const db = game.db();
+  db.prepare("UPDATE heroes SET location_slot = 'L6' WHERE save_id = 1").run();
+  beginFight(db, 1, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: () => 0.01 });
+  const forged = game.run('fight', 'end', '1', 'won');
+  assert.equal(forged.status, 1);
+  assert.match(JSON.parse(forged.stderr.trim()).error, /fight attack|combat/i);
+  assert.equal(game.run('fight', 'state').json.fight.status, 'open');
+  assert.equal(game.run('ending', 'build').status, 1);
+  assert.equal(game.run('fight', 'log', '1', 'hero', 'attack').status, 1);
+});
+
+test('the legacy fight commands still work for a plain logged fight', () => {
+  const game = readyGame();
+  const started = game.run('fight', 'start', 'a tavern brawl');
+  assert.equal(game.run('fight', 'log', String(started.json.fightId), 'hero', 'swing').status, 0);
+  assert.equal(game.run('fight', 'end', String(started.json.fightId), 'won').status, 0);
 });

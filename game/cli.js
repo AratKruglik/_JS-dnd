@@ -2,7 +2,7 @@ import { openGameDb } from './db.js';
 import { createSave, createHero, getHero } from './hero.js';
 import { addHonorEvent, getHonor } from './honor.js';
 import { rollAndLog } from './rolls.js';
-import { startFight, logFightStep, endFight, getFightLog } from './fights.js';
+import { startFight, logFightStep, endFight, getFightLog, assertLegacyFight } from './fights.js';
 import { checkDice } from './integrity.js';
 import { applyTamperReset } from './reset.js';
 import { applyHonorRule } from './honor-rules.js';
@@ -319,6 +319,7 @@ function main() {
         out({ ok: true, fightId: startFight(db, currentSaveId(), { triggerReason: need(rest[0], 'reason') }) });
       } else if (sub === 'log') {
         const [fightId, actor, action, detail] = rest;
+        assertLegacyFight(db, toInt(need(fightId, 'fightId'), 'fightId'));
         const seq = logFightStep(db, toInt(need(fightId, 'fightId'), 'fightId'), {
           actor: need(actor, 'actor'),
           action: need(action, 'action'),
@@ -327,7 +328,9 @@ function main() {
         });
         out({ ok: true, seq });
       } else if (sub === 'end') {
-        endFight(db, toInt(need(rest[0], 'fightId'), 'fightId'), need(rest[1], 'outcome'));
+        const endId = toInt(need(rest[0], 'fightId'), 'fightId');
+        assertLegacyFight(db, endId);
+        endFight(db, endId, need(rest[1], 'outcome'));
         out({ ok: true });
       } else if (sub === 'show') {
         out({ ok: true, log: getFightLog(db, toInt(need(rest[0], 'fightId'), 'fightId')) });
