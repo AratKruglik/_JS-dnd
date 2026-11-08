@@ -5,12 +5,14 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startQuest, checkQuest, declineStyle } from '../../game/quests.js';
-import { createSave, createHero } from '../../game/hero.js';
+import { createSave, createHeroFromChoices } from '../../game/hero.js';
+import { setSetting, fillWorld } from '../../game/world.js';
 import { getHonor } from '../../game/honor.js';
 import { HONOR_RULES } from '../../game/honor-rules.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { GENERAL_STYLE } from '../../quests/style.js';
-import { freshDb } from './helpers.js';
+import { freshDb, markSolved } from './helpers.js';
+import { SETTING, goodWorld } from './world-fixtures.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const installed = existsSync(join(root, 'node_modules', '.bin', 'prettier'));
@@ -24,6 +26,15 @@ const NEAT =
 function setup(code = MESSY) {
   const db = freshDb();
   const saveId = createSave(db, {});
+  createHeroFromChoices(db, saveId, {
+    name: 'Bilbo',
+    race: 'hobbit',
+    heroClass: 'rogue',
+    scores: [8, 15, 14, 8, 8, 15],
+  });
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
+  markSolved(db, saveId, 'dice-roll');
   const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-qstyle-'));
   writeFileSync(join(playerDir, 'string-shout.js'), code);
   return { db, saveId, playerDir, opts: { playerDir, timeoutMs: 15000 } };
@@ -95,10 +106,10 @@ test(
 
 test('a tamper reset starts a new epoch, so the style can be declined again', options, () => {
   const { db, saveId, opts } = setup();
-  createHero(db, saveId, { name: 'Bilbo', race: 'halfling', heroClass: 'rogue' });
   checkQuest(db, saveId, 'string-shout', opts);
   declineStyle(db, saveId, 'string-shout', opts);
   applyTamperReset(db, saveId, { expected: 'a', found: 'b' });
+  markSolved(db, saveId, 'dice-roll');
   checkQuest(db, saveId, 'string-shout', opts);
   declineStyle(db, saveId, 'string-shout', opts);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM honor_events WHERE kind = 'style_declined'").get().n, 2);

@@ -11,7 +11,6 @@ export default {
   title: 'Roll your own die',
   rung: 1,
   complexity: 2,
-  file: 'player/dice-roll.js',
   brief:
     'Write a function rollDie(sides, rng) that rolls one die. rng is a function that gives a number from 0 up to, but not including, 1 (it defaults to Math.random). Return a whole number from 1 to sides. Read game/dice.js first to see how the game does it, then write your own version.',
   stub: `// Quest: roll your own die.

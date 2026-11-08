@@ -15,7 +15,7 @@ test('the registry lists the three quests in order with sane metadata', () => {
   );
   assert.equal(new Set(QUESTS.map((q) => q.id)).size, QUESTS.length);
   for (const quest of QUESTS) {
-    assert.equal(quest.file, `player/${quest.id}.js`);
+    assert.equal(quest.file, undefined, 'the path depends on the player folder, so it is not stored on the quest');
     assert.ok(quest.complexity >= 1 && quest.complexity <= 5);
     assert.ok(quest.title && quest.brief);
     assert.match(quest.stub, /export/);

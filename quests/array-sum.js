@@ -20,7 +20,6 @@ export default {
   title: 'Count the even ones',
   rung: 1,
   complexity: 2,
-  file: 'player/array-sum.js',
   brief:
     'Write a function sumEven(numbers). It receives an array of whole numbers and returns the total of only the even ones. An empty array gives 0.',
   stub: `// Quest: count the even ones.

@@ -11,12 +11,17 @@ export const BOSS_SLOT = 'N7';
 export function endingStatus(db, saveId) {
   const progress = getProgress(db, saveId);
   const lastReset = db.prepare('SELECT MAX(created_at) AS at FROM resets WHERE save_id = ?').get(saveId).at;
+  // The boss must fall after the latest solve of this epoch. A quest added or solved later reopens
+  // the road, so the boss has to be beaten again.
+  const lastSolve = db
+    .prepare('SELECT MAX(solved_at) AS at FROM quest_solves WHERE save_id = ? AND epoch = ?')
+    .get(saveId, progress.epoch).at;
   const bossDefeated = Boolean(
     db
       .prepare(
-        "SELECT 1 FROM fights WHERE save_id = ? AND npc_slot = ? AND outcome = 'won' AND (? IS NULL OR ended_at > ?) LIMIT 1",
+        "SELECT 1 FROM fights WHERE save_id = ? AND npc_slot = ? AND outcome = 'won' AND (? IS NULL OR ended_at > ?) AND (? IS NULL OR ended_at > ?) LIMIT 1",
       )
-      .get(saveId, BOSS_SLOT, lastReset, lastReset),
+      .get(saveId, BOSS_SLOT, lastReset, lastReset, lastSolve, lastSolve),
   );
   const questsSolved = progress.solved.length;
   return {

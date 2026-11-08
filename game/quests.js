@@ -9,6 +9,8 @@ import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
 import { GENERAL_STYLE } from '../quests/style.js';
 import { checkStyle } from './style-check.js';
+import { getHero } from './hero.js';
+import { worldStatus } from './world-status.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HINT_KINDS = ['npc_speech', 'legal_doc', 'illegal_doc', 'master_leak'];
@@ -39,8 +41,23 @@ const hintsUsed = (db, saveId, questId, epoch) =>
     .prepare('SELECT COUNT(*) AS n FROM quest_hints WHERE save_id = ? AND quest_id = ? AND epoch = ?')
     .get(saveId, questId, epoch).n;
 
-export function startQuest(questId, { playerDir = defaultPlayerDir() } = {}) {
+// A quest opens for a hero in a finished world once every earlier quest is solved in this epoch.
+// Where the NPC stands and whether they are awake is not checked, so the Master can always recover.
+function requireQuestAccess(db, saveId, quest) {
+  if (!getHero(db, saveId)) throw new Error('No hero yet. Create one first.');
+  const status = worldStatus(db, saveId);
+  if (!status.complete) throw new Error(`The world is not ready yet (missing: ${status.missing.join(', ')}).`);
+  const { solved } = getProgress(db, saveId);
+  const unsolved = QUESTS.slice(0, QUESTS.indexOf(quest))
+    .filter((q) => !solved.includes(q.id))
+    .map((q) => q.id);
+  if (unsolved.length) throw new Error(`Quest "${quest.id}" is not open yet. Solve first: ${unsolved.join(', ')}.`);
+}
+
+// With a database and a save the quest is gated. Tools that only want the stub can leave them out.
+export function startQuest(questId, { playerDir = defaultPlayerDir(), db, saveId } = {}) {
   const quest = requireQuest(questId);
+  if (db) requireQuestAccess(db, saveId, quest);
   mkdirSync(playerDir, { recursive: true });
   const file = join(playerDir, `${quest.id}.js`);
   const created = !existsSync(file);
@@ -58,6 +75,7 @@ export function startQuest(questId, { playerDir = defaultPlayerDir() } = {}) {
 // With style: true a passing file also gets the style check (a separate, slower step).
 export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir(), timeoutMs, style = false } = {}) {
   const quest = requireQuest(questId);
+  requireQuestAccess(db, saveId, quest);
   const playerPath = join(playerDir, `${quest.id}.js`);
   // Hash first: this is the code the check is about to run. Step 2 must read the same bytes.
   const sha = fileHash(playerPath);
@@ -70,6 +88,7 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
   const passed = result.status === 'pass';
   return {
     attemptId: Number(attempt.lastInsertRowid),
+    file: playerPath,
     ...result,
     next: passed ? 'judge' : 'retry',
     ...(passed ? { tone: toneFor(getHonor(db, saveId)) } : {}),
@@ -115,6 +134,7 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
   const quest = requireQuest(questId);
 
   return inTransaction(db, () => {
+    requireQuestAccess(db, saveId, quest);
     const attempt = db
       .prepare('SELECT * FROM quest_attempts WHERE save_id = ? AND quest_id = ? ORDER BY id DESC LIMIT 1')
       .get(saveId, quest.id);

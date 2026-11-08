@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { sealDice } from '../../game/integrity.js';
-import { count } from './helpers.js';
+import { count, markSolvedBefore } from './helpers.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { QUESTS } from '../../quests/index.js';
@@ -238,8 +238,7 @@ test('quest list shows the three quests unsolved with complexity', () => {
 });
 
 test('quest start writes the stub and a second start does not overwrite edits', () => {
-  const { run } = install();
-  run('init');
+  const { run } = readyGame();
   const first = run('quest', 'start', 'dice-roll');
   assert.equal(first.json.created, true);
   appendFileSync(first.json.file, '// my edit\n');
@@ -249,8 +248,7 @@ test('quest start writes the stub and a second start does not overwrite edits', 
 });
 
 test('full loop: start, solve, check passes with tone, judge clean, progress, honor up', () => {
-  const { run } = install();
-  run('init');
+  const { run } = readyGame();
   const started = run('quest', 'start', 'dice-roll');
   copyFileSync(solutionFile('dice-roll'), started.json.file);
   const checked = run('quest', 'check', 'dice-roll');
@@ -263,8 +261,9 @@ test('full loop: start, solve, check passes with tone, judge clean, progress, ho
 });
 
 test('quest check on a failing file prints got and expected and exits 0 with next retry', () => {
-  const { run } = install();
-  run('init');
+  const game = readyGame();
+  const { run } = game;
+  markSolvedBefore(game.db(), 1, 'array-sum');
   const started = run('quest', 'start', 'array-sum');
   copyFileSync(solutionFile('array-sum', 'wrong'), started.json.file);
   const checked = run('quest', 'check', 'array-sum');
@@ -276,8 +275,9 @@ test('quest check on a failing file prints got and expected and exits 0 with nex
 });
 
 test('an infinite-loop player file returns status timeout and the CLI still exits 0', () => {
-  const { run } = install();
-  run('init');
+  const game = readyGame();
+  const { run } = game;
+  markSolvedBefore(game.db(), 1, 'string-shout');
   const started = run('quest', 'start', 'string-shout');
   writeFileSync(started.json.file, 'export function shout() { while (true) {} }\n');
   const checked = run('quest', 'check', 'string-shout');
@@ -592,12 +592,14 @@ test('onboarding can be redone: hero create twice, then the world, until the adv
   assert.match(JSON.parse(late.stderr.trim()).error, /already have a hero/i);
 });
 
-test('a stray hero new plus quest check before /play no longer blocks onboarding', () => {
+test('a stray hero new does not block onboarding, and quests stay shut until the world is ready', () => {
   const { run } = install();
   run('init');
   assert.equal(run('hero', 'new', 'Bilbo', 'hobbit', 'rogue').status, 0);
-  run('quest', 'start', 'dice-roll');
-  assert.equal(run('quest', 'check', 'dice-roll').status, 0);
+  const early = run('quest', 'start', 'dice-roll');
+  assert.equal(early.status, 1);
+  assert.match(JSON.parse(early.stderr.trim()).error, /not ready/i);
+  assert.equal(run('quest', 'check', 'dice-roll').status, 1);
   assert.equal(run(...HERO_ARGS).status, 0);
   assert.equal(run(...SETTING_ARGS).status, 0);
   const fill = run('world', 'fill', '--data', JSON.stringify(goodWorld()));
@@ -948,6 +950,7 @@ test('the legacy fight commands still work for a plain logged fight', () => {
 const MESSY_SHOUT = 'export function shout(text) {\n  var t = text.trim().toUpperCase()\n  return t + "!"\n}\n';
 
 function messyShout(game) {
+  markSolvedBefore(game.db(), 1, 'string-shout');
   mkdirSync(game.env.JSDND_PLAYER_DIR, { recursive: true });
   writeFileSync(join(game.env.JSDND_PLAYER_DIR, 'string-shout.js'), MESSY_SHOUT);
 }
@@ -968,6 +971,7 @@ test('quest check carries the style result on a pass, and quest style shows it a
 
 test('quest start hands over the style directions', () => {
   const game = readyGame();
+  markSolvedBefore(game.db(), 1, 'string-shout');
   const started = game.run('quest', 'start', 'string-shout');
   assert.equal(started.json.style.general.length, 9);
 });
@@ -999,4 +1003,14 @@ test('style commands are listed in the usage and blocked while collapsed', () =>
     assert.equal(result.status, 1);
     assert.equal(JSON.parse(result.stderr.trim()).collapsed, true);
   }
+});
+
+test('quest start, check, and list print the real file path under the player folder', () => {
+  const game = readyGame();
+  const where = (id) => join(game.env.JSDND_PLAYER_DIR, `${id}.js`);
+  assert.equal(game.run('quest', 'start', 'dice-roll').json.file, where('dice-roll'));
+  copyFileSync(solutionFile('dice-roll'), where('dice-roll'));
+  assert.equal(game.run('quest', 'check', 'dice-roll').json.file, where('dice-roll'));
+  const files = game.run('quest', 'list').json.quests.map((q) => q.file);
+  assert.deepEqual(files, ['dice-roll', 'string-shout', 'array-sum'].map(where));
 });

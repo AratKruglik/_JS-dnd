@@ -114,6 +114,10 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
       if (tier !== 'tough') throw new Error('The final boss is always tough.');
     }
 
+    if (questId !== null && getProgress(db, saveId).solved.includes(questId)) {
+      throw new Error(`Quest "${questId}" is already solved, so it cannot host a fight.`);
+    }
+
     if (aggressor === 'npc' && !questId) {
       const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
       const given = row?.count ?? 0;

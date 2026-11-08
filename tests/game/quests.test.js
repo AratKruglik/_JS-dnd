@@ -6,17 +6,34 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from '../../game/quests.js';
 import { QUESTS } from '../../quests/index.js';
-import { createSave, createHero } from '../../game/hero.js';
+import { createSave, createHero, createHeroFromChoices } from '../../game/hero.js';
+import { setSetting, fillWorld } from '../../game/world.js';
 import { getHonor, getHonorHistory } from '../../game/honor.js';
 import { applyHonorRule } from '../../game/honor-rules.js';
 import { applyTamperReset } from '../../game/reset.js';
-import { freshDb, count } from './helpers.js';
+import { freshDb, count, markSolved, markSolvedBefore } from './helpers.js';
+import { SETTING, goodWorld } from './world-fixtures.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), '..', 'quests', 'solutions');
+
+function bare() {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-player-'));
+  return { db, saveId, playerDir, opts: { playerDir, timeoutMs: 15000 } };
+}
 
 function setup() {
   const db = freshDb();
   const saveId = createSave(db, {});
+  createHeroFromChoices(db, saveId, {
+    name: 'Bilbo',
+    race: 'hobbit',
+    heroClass: 'rogue',
+    scores: [8, 15, 14, 8, 8, 15],
+  });
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
   const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-player-'));
   const opts = { playerDir, timeoutMs: 15000 };
   const put = (id, kind = 'reference') =>
@@ -39,19 +56,22 @@ test('startQuest writes the stub once and never overwrites the players work', ()
 });
 
 test('a failed check records an attempt, returns retry with got and expected, and leaves honor unchanged', () => {
-  const { db, saveId, opts, put, judge } = setup();
+  const { db, saveId, opts, put } = setup();
+  markSolvedBefore(db, saveId, 'array-sum');
+  const attemptsBefore = count(db, 'quest_attempts');
   put('array-sum', 'wrong');
   const result = checkQuest(db, saveId, 'array-sum', opts);
   assert.equal(result.status, 'fail');
   assert.equal(result.next, 'retry');
   assert.equal(result.tone, undefined);
   assert.ok(result.got && result.expected);
-  assert.equal(count(db, 'quest_attempts'), 1);
+  assert.equal(count(db, 'quest_attempts'), attemptsBefore + 1);
   assert.equal(getHonor(db, saveId), 0);
 });
 
 test('a passing check returns judge with gentle tone at honor 0 and roast tone below 0', () => {
-  const { db, saveId, opts, put, judge } = setup();
+  const { db, saveId, opts, put } = setup();
+  markSolvedBefore(db, saveId, 'string-shout');
   put('string-shout');
   const first = checkQuest(db, saveId, 'string-shout', opts);
   assert.deepEqual([first.status, first.next, first.tone], ['pass', 'judge', 'gentle']);
@@ -132,7 +152,6 @@ test('logHint counts hints per quest and applies honor for illegal_doc and maste
 
 test('after a tamper reset solved quests count as unsolved while history remains', () => {
   const { db, saveId, opts, put, judge } = setup();
-  createHero(db, saveId, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue' });
   put('dice-roll');
   checkQuest(db, saveId, 'dice-roll', opts);
   judge('dice-roll', 'clean');
@@ -152,7 +171,6 @@ test('after a tamper reset solved quests count as unsolved while history remains
 
 test('a quest can be solved again after a reset and the old solve stays', () => {
   const { db, saveId, opts, put, judge } = setup();
-  createHero(db, saveId, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue' });
   put('dice-roll');
   checkQuest(db, saveId, 'dice-roll', opts);
   judge('dice-roll', 'clean');
@@ -165,19 +183,20 @@ test('a quest can be solved again after a reset and the old solve stays', () => 
 
 test('getProgress lists solved and remaining in registry order', () => {
   const { db, saveId, opts, put, judge } = setup();
-  put('array-sum');
-  checkQuest(db, saveId, 'array-sum', opts);
-  judge('array-sum', 'clean');
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
   assert.deepEqual(getProgress(db, saveId), {
     epoch: 0,
-    solved: ['array-sum'],
-    remaining: ['dice-roll', 'string-shout'],
+    solved: ['dice-roll'],
+    remaining: ['string-shout', 'array-sum'],
     total: 3,
   });
 });
 
 test('judging is rejected when the file changed after the check', () => {
   const { db, saveId, playerDir, opts, put, judge } = setup();
+  markSolvedBefore(db, saveId, 'array-sum');
   put('array-sum');
   checkQuest(db, saveId, 'array-sum', opts);
   appendFileSync(join(playerDir, 'array-sum.js'), '\n// edited after the check\n');
@@ -189,6 +208,8 @@ test('judging is rejected when the file changed after the check', () => {
 
 test('a file that rewrites itself during the check cannot be judged as the code that ran', () => {
   const { db, saveId, playerDir, opts, judge } = setup();
+  markSolvedBefore(db, saveId, 'array-sum');
+  const solvesBefore = count(db, 'quest_solves');
   const code = [
     "import { writeFileSync } from 'node:fs';",
     'export function sumEven(numbers) { return numbers.filter((n) => n % 2 === 0).reduce((s, n) => s + n, 0); }',
@@ -197,12 +218,11 @@ test('a file that rewrites itself during the check cannot be judged as the code 
   writeFileSync(join(playerDir, 'array-sum.js'), code);
   assert.equal(checkQuest(db, saveId, 'array-sum', opts).status, 'pass');
   assert.throws(() => judge('array-sum', 'clean'), /changed/i);
-  assert.equal(count(db, 'quest_solves'), 0);
+  assert.equal(count(db, 'quest_solves'), solvesBefore);
 });
 
 test('hints from before a reset do not count in the new epoch', () => {
   const { db, saveId, opts, put, judge } = setup();
-  createHero(db, saveId, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue' });
   logHint(db, saveId, 'dice-roll', 'npc_speech');
   applyTamperReset(db, saveId, { expected: 'aaa', found: 'bbb' });
   put('dice-roll');
@@ -229,4 +249,64 @@ test('a failure while logging an illegal link leaves no hint row behind', () => 
   assert.throws(() => logHint(db, saveId, 'dice-roll', 'illegal_doc', 'https://example.com'), /boom/);
   db.exec('DROP TRIGGER boom');
   assert.equal(count(db, 'quest_hints'), 0);
+});
+
+function worldSave() {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  createHeroFromChoices(db, saveId, {
+    name: 'Bilbo',
+    race: 'hobbit',
+    heroClass: 'rogue',
+    scores: [8, 15, 14, 8, 8, 15],
+  });
+  setSetting(db, saveId, SETTING);
+  fillWorld(db, saveId, goodWorld());
+  const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-gate-'));
+  const put = (id) => copyFileSync(join(solutions, `${id}.reference.js`), join(playerDir, `${id}.js`));
+  return { db, saveId, playerDir, opts: { playerDir, timeoutMs: 15000 }, put };
+}
+
+test('quest start, check, and judge need a hero', () => {
+  const { db, saveId, playerDir, opts } = bare();
+  assert.throws(() => startQuest('dice-roll', { playerDir, db, saveId }), /no hero/i);
+  assert.throws(() => checkQuest(db, saveId, 'dice-roll', opts), /no hero/i);
+  assert.throws(() => judgeQuest(db, saveId, 'dice-roll', 'clean', null, { playerDir }), /no hero/i);
+  assert.equal(count(db, 'quest_attempts'), 0);
+});
+
+test('quest start, check, and judge need a finished world', () => {
+  const { db, saveId, playerDir, opts } = bare();
+  createHero(db, saveId, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue' });
+  assert.throws(() => startQuest('dice-roll', { playerDir, db, saveId }), /not ready/i);
+  assert.throws(() => checkQuest(db, saveId, 'dice-roll', opts), /not ready/i);
+  assert.throws(() => judgeQuest(db, saveId, 'dice-roll', 'clean', null, { playerDir }), /not ready/i);
+});
+
+test('a quest opens only after every earlier quest is solved in this epoch', () => {
+  const { db, saveId, playerDir, opts, put } = worldSave();
+  put('string-shout');
+  assert.throws(() => startQuest('string-shout', { playerDir, db, saveId }), /not open.*dice-roll/i);
+  assert.throws(() => checkQuest(db, saveId, 'string-shout', opts), /not open.*dice-roll/i);
+  assert.equal(count(db, 'quest_attempts'), 0);
+  assert.equal(startQuest('dice-roll', { playerDir, db, saveId }).questId, 'dice-roll');
+
+  markSolved(db, saveId, 'dice-roll');
+  assert.equal(checkQuest(db, saveId, 'string-shout', opts).status, 'pass');
+  put('array-sum');
+  assert.throws(() => checkQuest(db, saveId, 'array-sum', opts), /not open.*string-shout/i);
+});
+
+test('judging is refused when an earlier quest stopped counting after a reset', () => {
+  const { db, saveId, playerDir, opts, put } = worldSave();
+  markSolved(db, saveId, 'dice-roll');
+  put('string-shout');
+  checkQuest(db, saveId, 'string-shout', opts);
+  applyTamperReset(db, saveId, { expected: 'a', found: 'b' });
+  assert.throws(() => judgeQuest(db, saveId, 'string-shout', 'clean', null, { playerDir }), /not open.*dice-roll/i);
+});
+
+test('startQuest without a database still writes the stub, for tools that have no save', () => {
+  const { playerDir } = bare();
+  assert.equal(startQuest('array-sum', { playerDir }).created, true);
 });

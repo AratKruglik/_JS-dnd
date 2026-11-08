@@ -210,3 +210,10 @@ test('play.md hands over the style directions and runs the warn, fix, or decline
   assert.match(quests, /fix/i);
   assert.match(quests, /a little honor/i);
 });
+
+test('play.md says quests open in order and where the file path comes from', () => {
+  const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
+  assert.match(quests, /open in order/i);
+  assert.match(quests, /not open yet/i);
+  assert.match(quests, /`file`/);
+});

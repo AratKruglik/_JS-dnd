@@ -23,7 +23,6 @@ export default {
   title: 'Make some noise',
   rung: 1,
   complexity: 1,
-  file: 'player/string-shout.js',
   brief:
     'Write a function shout(text). It removes spaces from both ends of the text, makes it all capital letters, and puts an exclamation mark on the end.',
   stub: `// Quest: make some noise.

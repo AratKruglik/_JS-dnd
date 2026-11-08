@@ -317,12 +317,14 @@ function main() {
             title: q.title,
             rung: q.rung,
             complexity: q.complexity,
+            file: join(defaultPlayerDir(), `${q.id}.js`),
             solved: solved.includes(q.id),
           })),
         });
       } else if (sub === 'start') {
         arity(rest, 1, 1, 'quest start <id>');
-        out({ ok: true, ...startQuest(rest[0]) });
+        const saveId = currentSaveId();
+        out({ ok: true, ...startQuest(rest[0], { db, saveId }) });
       } else if (sub === 'check') {
         arity(rest, 1, 1, 'quest check <id>');
         out({ ok: true, ...checkQuest(db, currentSaveId(), rest[0], { timeoutMs, style: true }) });

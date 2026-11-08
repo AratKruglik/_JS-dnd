@@ -53,6 +53,8 @@ Include all six locations and all seven NPCs. If it is rejected (banned phrase, 
 
 ## Quests
 
+Quests open in order, one rung at a time. If a script says a quest is not open yet, send the player back to the earlier quest first. `quest start`, `quest check`, and `quest list` all carry the real `file` path: always give the player exactly that path.
+
 1. When an NPC offers a quest, tell it in the setting's skin, then run `node game/cli.js quest start <questId>`. It writes the player's file. Tell them the file path and what the brief asks them to export. The result also carries the code style directions: `style.general` for all code and `style.specific` for this quest. Give both with the brief, in plain words, and keep the quest's specific ones close to the task.
 2. The player writes their solution and tells you when it is ready. Run `node game/cli.js quest check <questId>`.
 3. If the status is not pass (fail, error, or timeout), show the player plainly what their code returned and what was expected. No roast, no honor change. They try again.

@@ -6,7 +6,7 @@ import { setSetting, fillWorld, look, go, talk } from '../../game/world.js';
 import { getFightLog } from '../../game/fights.js';
 import { getHonor } from '../../game/honor.js';
 import { applyTamperReset } from '../../game/reset.js';
-import { freshDb, count } from './helpers.js';
+import { freshDb, count, markSolved } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 // Scripts an rng: each [value, sides] pair becomes the random number that lands on that face.
@@ -289,4 +289,36 @@ test('the hero attack penalty is never applied to the enemy attack roll', () => 
   beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
   const state = heroAttack(db, saveId, { rng: script([3, 20], [7, 20]), modifiers: { attack: -10 } });
   assert.match(state.log.at(-1).detail, /\(10 vs AC 13\)/);
+});
+
+test('a quest fight needs a quest that is not solved this epoch', () => {
+  const { db, saveId } = ready();
+  markSolved(db, saveId, 'string-shout');
+  assert.throws(
+    () => beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', questId: 'string-shout' }),
+    /already solved/i,
+  );
+  assert.equal(count(db, 'fights'), 0);
+  const open = beginFight(db, saveId, {
+    npcSlot: 'N1',
+    tier: 'weak',
+    aggressor: 'npc',
+    questId: 'array-sum',
+    rng: heroFirst(),
+  });
+  assert.equal(open.status, 'open');
+});
+
+test('a quest solved in an earlier epoch can host a fight again after a reset', () => {
+  const { db, saveId } = ready();
+  markSolved(db, saveId, 'string-shout');
+  applyTamperReset(db, saveId, { expected: 'a', found: 'b' });
+  const open = beginFight(db, saveId, {
+    npcSlot: 'N1',
+    tier: 'weak',
+    aggressor: 'npc',
+    questId: 'string-shout',
+    rng: heroFirst(),
+  });
+  assert.equal(open.status, 'open');
 });

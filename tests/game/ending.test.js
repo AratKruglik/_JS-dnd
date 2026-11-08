@@ -11,7 +11,7 @@ import { setSetting, fillWorld } from '../../game/world.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { QUESTS } from '../../quests/index.js';
-import { freshDb } from './helpers.js';
+import { freshDb, markSolved } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), '..', 'quests', 'solutions');
@@ -165,4 +165,22 @@ test('a boss win in another save does not unlock this one', () => {
     "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome, npc_slot) VALUES (?, ?, ?, 'x', 'won', 'N7')",
   ).run(other, new Date().toISOString(), new Date().toISOString());
   assert.equal(endingStatus(db, saveId).bossDefeated, false);
+});
+
+test('a quest solved after the boss win locks the ending until the boss is beaten again', () => {
+  const { db, saveId, solveAll, winBoss } = ready();
+  solveAll();
+  winBoss();
+  assert.equal(endingStatus(db, saveId).unlocked, true);
+
+  pause(5);
+  // A quest that did not exist when the boss fell, solved afterwards.
+  markSolved(db, saveId, 'future-quest');
+  const locked = endingStatus(db, saveId);
+  assert.deepEqual([locked.bossDefeated, locked.unlocked], [false, false]);
+
+  pause(5);
+  const again = winBoss();
+  assert.equal(again.endingUnlocked, true);
+  assert.equal(endingStatus(db, saveId).unlocked, true);
 });
