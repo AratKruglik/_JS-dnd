@@ -1,6 +1,7 @@
 import { inTransaction } from './db.js';
 import { getHero } from './hero.js';
 import { getProgress } from './quests.js';
+import { requireAwake } from './knockouts.js';
 import { lintVoice } from './voice.js';
 import { worldStatus } from './world-status.js';
 import { SKELETON } from '../world/skeleton.js';
@@ -186,6 +187,7 @@ export function talk(db, saveId, npcSlot) {
   const spot = SKELETON.npcs.find((n) => n.slot === String(npcSlot ?? '').trim().toUpperCase());
   if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
 
+  requireAwake(db, saveId, spot.slot);
   const npc = db
     .prepare('SELECT slot, name, description, voice FROM world_npcs WHERE save_id = ? AND slot = ?')
     .get(saveId, spot.slot);

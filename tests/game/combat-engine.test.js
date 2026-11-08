@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from '../../game/combat-engine.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
-import { setSetting, fillWorld, look, go } from '../../game/world.js';
+import { setSetting, fillWorld, look, go, talk } from '../../game/world.js';
 import { getFightLog } from '../../game/fights.js';
 import { getHonor } from '../../game/honor.js';
 import { applyTamperReset } from '../../game/reset.js';
@@ -156,4 +156,37 @@ test('a tamper reset abandons the open fight', () => {
   assert.equal(db.prepare('SELECT outcome FROM fights WHERE id = ?').get(fightId).outcome, 'abandoned');
   assert.equal(getFightState(db, saveId), null);
   assert.throws(() => heroAttack(db, saveId, { rng: heroFirst() }), /no fight/i);
+});
+
+test('a beaten npc is knocked out: no talking, warning, or fighting them again', () => {
+  const { db, saveId } = ready();
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero', rng: heroFirst() });
+  assert.equal(heroAttack(db, saveId, { rng: script([15, 20], [5, 8]) }).status, 'won');
+  assert.throws(() => talk(db, saveId, 'N1'), /knocked out/i);
+  assert.throws(() => warnNpc(db, saveId, 'N1', 'again'), /knocked out/i);
+  assert.throws(() => beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero' }), /knocked out/i);
+  assert.equal(count(db, 'fights'), 1);
+  assert.equal(getHonor(db, saveId), -15);
+});
+
+test('warnings reset when a fight ends, win, loss, or flee', () => {
+  const { db, saveId } = ready();
+  ['a', 'b', 'c'].forEach((r) => warnNpc(db, saveId, 'N1', r));
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() });
+  fleeFight(db, saveId);
+  assert.deepEqual(warnNpc(db, saveId, 'N1', 'new'), { warnings: 1, mayFight: false });
+  assert.throws(() => beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc' }), /warning/i);
+
+  const other = ready();
+  go(other.db, other.saveId, 'L2');
+  ['a', 'b', 'c'].forEach((r) => warnNpc(other.db, other.saveId, 'N2', r));
+  beginFight(other.db, other.saveId, { npcSlot: 'N2', tier: 'tough', aggressor: 'npc', rng: script([3, 20], [15, 20], [15, 20], [8, 8]) });
+  assert.equal(heroAttack(other.db, other.saveId, { rng: script([2, 20], [15, 20], [8, 8]) }).status, 'lost');
+  assert.deepEqual(warnNpc(other.db, other.saveId, 'N2', 'new'), { warnings: 1, mayFight: false });
+
+  const win = ready();
+  ['a', 'b', 'c'].forEach((r) => warnNpc(win.db, win.saveId, 'N1', r));
+  beginFight(win.db, win.saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'npc', rng: heroFirst() });
+  heroAttack(win.db, win.saveId, { rng: script([15, 20], [5, 8]) });
+  assert.equal(win.db.prepare('SELECT COUNT(*) AS n FROM npc_warnings').get().n, 0);
 });

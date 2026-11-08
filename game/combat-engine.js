@@ -6,6 +6,7 @@ import { applyHonorRule } from './honor-rules.js';
 import { abilityMod, heroStats, ENEMY_TIERS, attackRoll, damageRoll, initiativeRoll } from './combat.js';
 import { getQuest } from '../quests/index.js';
 import { SKELETON } from '../world/skeleton.js';
+import { knockOut, requireAwake } from './knockouts.js';
 
 const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
@@ -13,6 +14,7 @@ const now = () => new Date().toISOString();
 export function warnNpc(db, saveId, npcSlot, reason = null) {
   const slot = String(npcSlot ?? '').trim().toUpperCase();
   if (!SKELETON.npcs.some((n) => n.slot === slot)) throw new Error(`Unknown NPC "${npcSlot}".`);
+  requireAwake(db, saveId, slot);
   return inTransaction(db, () => {
     db.prepare(
       `INSERT INTO npc_warnings (save_id, npc_slot, count, last_reason, updated_at) VALUES (?, ?, 1, ?, ?)
@@ -67,8 +69,13 @@ function enemyTurn(db, saveId, fight, hero, rng) {
   return heroHp === 0;
 }
 
+// A fight is over, however it ended: the NPC's warnings start from zero.
+const clearWarnings = (db, fight) =>
+  db.prepare('DELETE FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').run(fight.save_id, fight.npc_slot);
+
 function finishLoss(db, fight) {
   endFight(db, fight.id, 'lost');
+  clearWarnings(db, fight);
   db.prepare('UPDATE heroes SET location_slot = ? WHERE save_id = ?').run(SKELETON.start, fight.save_id);
 }
 
@@ -85,6 +92,7 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
   const spot = SKELETON.npcs.find((n) => n.slot === slot);
   if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
   if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
+  requireAwake(db, saveId, slot);
 
   if (aggressor === 'npc' && !questId) {
     const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
@@ -154,6 +162,8 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
 
     if (enemyHp === 0) {
       endFight(db, fight.id, 'won');
+      knockOut(db, saveId, fight.npc_slot);
+      clearWarnings(db, fight);
       const kind = fight.aggressor === 'npc' ? 'kill_self_defense' : 'kill_unprovoked';
       const honor = applyHonorRule(db, saveId, kind, `defeated ${fight.enemy_name}`);
       return stateOf(db, fight.id, { honor });
@@ -190,5 +200,6 @@ export function fleeFight(db, saveId) {
   if (!fight) throw new Error('No fight in progress.');
   logFightStep(db, fight.id, { actor: 'hero', action: 'flee', detail: 'the hero runs' });
   endFight(db, fight.id, 'fled');
+  clearWarnings(db, fight);
   return stateOf(db, fight.id);
 }

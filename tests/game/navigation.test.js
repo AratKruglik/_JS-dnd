@@ -8,6 +8,7 @@ import { look, go, talk, setSetting, fillWorld } from '../../game/world.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
+import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { freshDb } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
@@ -130,4 +131,13 @@ test('slots are matched in any letter case', () => {
   const { db, saveId } = ready();
   assert.equal(talk(db, saveId, 'n1').npc.slot, 'N1');
   assert.equal(go(db, saveId, 'l2').location.slot, 'L2');
+});
+
+test('a knocked out npc talks again only after the hero solves a quest', () => {
+  const { db, saveId, solve } = ready();
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'weak', aggressor: 'hero', rng: () => 0.7 });
+  while (db.prepare('SELECT 1 FROM fights WHERE ended_at IS NULL').get()) heroAttack(db, saveId, { rng: () => 0.95 });
+  assert.throws(() => talk(db, saveId, 'N1'), /knocked out/i);
+  solve('dice-roll');
+  assert.equal(talk(db, saveId, 'N1').npc.slot, 'N1');
 });

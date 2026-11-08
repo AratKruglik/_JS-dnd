@@ -111,3 +111,23 @@ test('play.md teaches warnings, tiers, the fight loop, and advanced moves', () =
   assert.match(play, /never the tests/i);
   assert.doesNotMatch(play, /not built yet/i);
 });
+
+test('play.md has a subagent write the move problem so the tests and answer stay off the Master screen', () => {
+  const combat = play.slice(play.indexOf('## Combat'));
+  assert.match(combat, /subagent/i);
+  assert.match(combat, /never (write|send|show|type)[^.]*(tests|reference)/i);
+});
+
+test('play.md makes the Master judge a passed move file and log cheating', () => {
+  const combat = play.slice(play.indexOf('## Combat'));
+  assert.match(combat, /player\/move-<moveId>\.js/);
+  assert.ok(combat.includes('node game/cli.js honor event cheat'));
+});
+
+test('play.md says a beaten NPC is knocked out and warnings reset when a fight ends', () => {
+  const combat = play.slice(play.indexOf('## Combat'));
+  assert.match(combat, /knocked out/i);
+  assert.match(combat, /solves another quest/i);
+  assert.match(combat, /warnings (are cleared|reset|start over)/i);
+  assert.doesNotMatch(combat, /winning a fight is a kill/i);
+});

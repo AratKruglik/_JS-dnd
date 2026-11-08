@@ -564,7 +564,8 @@ test('an advanced move: propose from stdin, then a correct solution wins and a w
   assert.equal(won.status, 0, won.stderr);
   assert.deepEqual([won.json.moveStatus, won.json.fight.status], ['won', 'won']);
 
-  run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  run('go', 'L2');
+  run('fight', 'begin', '--npc', 'N2', '--tier', 'tough', '--aggressor', 'hero');
   const second = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   writeFileSync(second.json.file, 'export function solve(a, b) { return a - b; }');
   const lost = run('move', 'check', String(second.json.moveId));

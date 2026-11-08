@@ -207,4 +207,17 @@ CREATE TABLE fight_moves (
 );
 `,
   },
+  {
+    // A won fight knocks the NPC out until the hero's next quest solve (solve count at that moment).
+    version: 8,
+    sql: `
+CREATE TABLE npc_knockouts (
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  npc_slot TEXT NOT NULL,
+  solves_at_knockout INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, npc_slot)
+);
+`,
+  },
 ];
