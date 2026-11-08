@@ -605,3 +605,90 @@ test('tampering with the dice blocks the combat commands with exit 2', () => {
     assert.equal(run(...args).status, 2, args.join(' '));
   }
 });
+
+// Writes a status line reading straight into the DB, the way game/statusline.js does.
+function setReading(game, usedPercent, minutesToReset = 120) {
+  const db = game.db();
+  db.prepare(
+    `INSERT INTO stamina (save_id, used_percent, resets_at, read_at) VALUES (1, ?, ?, ?)
+     ON CONFLICT (save_id) DO UPDATE SET used_percent = excluded.used_percent, resets_at = excluded.resets_at, read_at = excluded.read_at`,
+  ).run(usedPercent, Math.floor(Date.now() / 1000) + minutesToReset * 60, Date.now());
+}
+
+test('stamina show reports the band and penalties, and rejects extra arguments', () => {
+  const game = readyGame();
+  assert.equal(game.run('stamina', 'show', 'x').status, 1);
+  assert.equal(game.run('stamina').status, 1);
+  const estimate = game.run('stamina', 'show').json;
+  assert.deepEqual([estimate.estimated, estimate.band, estimate.attack, estimate.collapsed], [true, 'fresh', 0, false]);
+  setReading(game, 85);
+  const tired = game.run('stamina', 'show').json;
+  assert.deepEqual(
+    [tired.estimated, tired.band, tired.left, tired.attack, tired.ac, tired.mental, tired.collapsed],
+    [false, 'weary', 15, -2, -2, true, false],
+  );
+});
+
+test('look carries a stamina note and every command starts the estimate window', () => {
+  const game = readyGame();
+  const view = game.run('look').json;
+  assert.deepEqual(view.stamina, { band: 'fresh', collapsed: false });
+  assert.ok(game.db().prepare('SELECT window_started_at AS w FROM stamina WHERE save_id = 1').get().w > 0);
+});
+
+test('a tired hero swings with the attack penalty from the current band', () => {
+  const attackBonusUsed = (game) => {
+    game.run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
+    game.run('fight', 'attack');
+    const db = game.db();
+    const detail = db.prepare("SELECT detail FROM fight_log WHERE actor = 'hero' AND action = 'attack'").get().detail;
+    const total = Number(/\((\d+) vs AC/.exec(detail)[1]);
+    const d20 = JSON.parse(db.prepare("SELECT results FROM dice_rolls WHERE context = 'hero attack'").get().results)[0];
+    return total - d20;
+  };
+  assert.equal(attackBonusUsed(readyGame()), 5);
+  const tired = readyGame();
+  setReading(tired, 85);
+  assert.equal(attackBonusUsed(tired), 3);
+});
+
+test('collapse blocks every play command with the place and hours, and leaves read-only ones alone', () => {
+  const game = readyGame();
+  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  setReading(game, 99, 150);
+  const blocked = [
+    ['go', 'L2'], ['talk', 'N1'], ['roll', '1d20'], ['npc', 'warn', 'N1'],
+    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero'], ['fight', 'attack'], ['fight', 'flee'],
+    ['move', 'propose', '--data', '-'], ['move', 'check', '1'],
+    ['quest', 'start', 'dice-roll'], ['quest', 'check', 'dice-roll'], ['quest', 'judge', 'dice-roll', 'clean'],
+    ['quest', 'hint', 'dice-roll', 'npc_speech'], ['link', 'use', 'dice-roll', 'https://developer.mozilla.org/'],
+  ];
+  for (const args of blocked) {
+    const result = game.run(...args);
+    assert.equal(result.status, 1, args.join(' '));
+    const error = JSON.parse(result.stderr.trim());
+    assert.deepEqual([error.collapsed, error.location, error.hours], [true, 'Place 1', 3], args.join(' '));
+    assert.match(error.error, /completely tired/i);
+  }
+  for (const args of [['look'], ['stamina', 'show'], ['hero', 'show'], ['honor', 'show'], ['world', 'status'], ['integrity', 'check'], ['quest', 'list'], ['fight', 'state']]) {
+    assert.equal(game.run(...args).status, 0, args.join(' '));
+  }
+  assert.equal(game.run('fight', 'state').json.fight.status, 'open');
+});
+
+test('the open fight resumes once the reading is from a window that has reset', () => {
+  const game = readyGame();
+  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  setReading(game, 99);
+  assert.equal(game.run('fight', 'attack').status, 1);
+  setReading(game, 99, -5);
+  const resumed = game.run('fight', 'attack');
+  assert.equal(resumed.status, 0, resumed.stderr);
+});
+
+test('a tampered dice file still exits 2 during a collapse', () => {
+  const game = readyGame();
+  setReading(game, 99);
+  appendFileSync(game.env.JSDND_DICE_PATH, '\n// cheat\n');
+  assert.equal(game.run('go', 'L2').status, 2);
+});

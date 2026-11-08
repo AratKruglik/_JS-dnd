@@ -24,6 +24,7 @@ import { lintVoice } from './voice.js';
 import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './combat-engine.js';
 import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
+import { touchWindow, currentStamina } from './stamina.js';
 
 const USAGE = `Commands:
   init
@@ -47,7 +48,14 @@ const USAGE = `Commands:
   quest judge <id> <clean|cheated> ["<note>"]
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
   link check <url> | link use <questId> <url>
+  stamina show
   integrity check`;
+
+// Play actions that stop while the hero is collapsed from tiredness. Read-only commands keep working.
+const BLOCKED_WHEN_COLLAPSED = new Set([
+  'go', 'talk', 'roll', 'npc warn', 'fight begin', 'fight attack', 'fight flee', 'move propose', 'move check',
+  'quest start', 'quest check', 'quest judge', 'quest hint', 'link use',
+]);
 
 // One line of compact JSON per answer keeps token use low for the Master.
 const out = (value) => console.log(JSON.stringify(value));
@@ -175,6 +183,28 @@ function main() {
     if (!save) fail('No save yet. Run: node game/cli.js init');
     return save.id;
   };
+  // Stamina: every command keeps the fallback estimate window alive, and a collapsed hero cannot act.
+  const save = firstSave();
+  if (save) touchWindow(db, save.id);
+  const stamina = save ? currentStamina(db, save.id) : null;
+  const tiredness = stamina ? { attack: stamina.attack, ac: stamina.ac } : undefined;
+  const actionKey = ['go', 'talk', 'roll'].includes(command) ? command : flagKey;
+  if (stamina?.collapsed && BLOCKED_WHEN_COLLAPSED.has(actionKey)) {
+    const spot = db
+      .prepare('SELECT wl.name FROM world_locations wl JOIN heroes h ON h.save_id = wl.save_id AND h.location_slot = wl.slot WHERE h.save_id = ?')
+      .get(save.id);
+    const location = spot?.name ?? 'the spot where they stood';
+    console.error(
+      JSON.stringify({
+        ok: false,
+        collapsed: true,
+        location,
+        hours: stamina.hours,
+        error: `you're completely tired. you fell on the spot where you were standing at ${location} for ${stamina.hours} hour(s)`,
+      }),
+    );
+    process.exit(1);
+  }
   const need = (value, name) => {
     if (value === undefined || value === '') fail(`Missing ${name}.\n${USAGE}`);
     return value;
@@ -309,11 +339,12 @@ function main() {
             tier: need(flags.tier, '--tier'),
             aggressor: need(flags.aggressor, '--aggressor'),
             questId: flags.quest ?? null,
+            modifiers: tiredness,
           }),
         });
       } else if (sub === 'attack') {
         arity(rest, 0, 0, 'fight attack');
-        out({ ok: true, fight: heroAttack(db, currentSaveId()) });
+        out({ ok: true, fight: heroAttack(db, currentSaveId(), { modifiers: tiredness }) });
       } else if (sub === 'flee') {
         arity(rest, 0, 0, 'fight flee');
         out({ ok: true, fight: fleeFight(db, currentSaveId()) });
@@ -336,8 +367,26 @@ function main() {
       } else if (sub === 'check') {
         arity(rest, 1, 1, 'move check <moveId>');
         const timeoutMs = process.env.JSDND_QUEST_TIMEOUT_MS ? Number(process.env.JSDND_QUEST_TIMEOUT_MS) : undefined;
-        out({ ok: true, ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs }) });
+        out({ ok: true, ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs, modifiers: tiredness }) });
       } else fail(USAGE);
+      break;
+    }
+    case 'stamina': {
+      if (sub !== 'show') fail(USAGE);
+      arity(rest, 0, 0, 'stamina show');
+      if (!stamina) fail('No save yet. Run: node game/cli.js init');
+      out({
+        ok: true,
+        usedPercent: Math.round(stamina.usedPercent * 10) / 10,
+        left: Math.round(100 - stamina.usedPercent),
+        band: stamina.band,
+        attack: stamina.attack,
+        ac: stamina.ac,
+        mental: stamina.mental,
+        collapsed: stamina.collapsed,
+        estimated: stamina.estimated,
+        hours: stamina.hours,
+      });
       break;
     }
     case 'rules': {
@@ -380,7 +429,7 @@ function main() {
     }
     case 'look': {
       arity(positionals.slice(1), 0, 0, 'look');
-      out({ ok: true, ...look(db, currentSaveId()) });
+      out({ ok: true, ...look(db, currentSaveId()), stamina: { band: stamina.band, collapsed: stamina.collapsed } });
       break;
     }
     case 'go': {
