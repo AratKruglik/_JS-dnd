@@ -4,18 +4,19 @@ import { HONOR_RULES, toneFor, applyHonorRule } from '../../game/honor-rules.js'
 import { getHonor, getHonorHistory } from '../../game/honor.js';
 import { createSave } from '../../game/hero.js';
 import { freshDb, count } from './helpers.js';
+import { MIGRATIONS } from '../../game/schema.js';
 
 const setup = () => {
   const db = freshDb();
   return { db, saveId: createSave(db, {}) };
 };
 
-test('migration 2 creates the four quest tables and leaves migration 1 intact', () => {
+test('the quest tables exist after migrating and every migration is recorded', () => {
   const { db } = setup();
   const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
   assert.deepEqual(
     versions.map((v) => v.version),
-    [1, 2, 3],
+    MIGRATIONS.map((m) => m.version),
   );
   for (const table of ['quest_attempts', 'quest_judgments', 'quest_solves', 'quest_hints']) {
     assert.equal(count(db, table), 0, `${table} should exist and be empty`);

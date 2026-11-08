@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { openGameDb, defaultGameDbPath, inTransaction } from '../../game/db.js';
+import { MIGRATIONS } from '../../game/schema.js';
 
 const tmpFile = () => join(mkdtempSync(join(tmpdir(), 'jsdnd-game-')), 'nested', 'game.db');
 
@@ -21,7 +22,7 @@ test('migrate is idempotent', () => {
   const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
   assert.deepEqual(
     versions.map((row) => row.version),
-    [1, 2, 3],
+    MIGRATIONS.map((m) => m.version),
   );
 });
 

@@ -1,4 +1,4 @@
-import { ABILITIES } from './hero.js';
+export const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
 // 5e SRD races and their ability score bonuses. Half-elf is fixed (CHA +2, DEX +1, CON +1)
 // because 5e lets the player pick the two +1s and a fixed pick keeps the game simple.

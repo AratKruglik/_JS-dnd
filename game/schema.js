@@ -123,4 +123,13 @@ CREATE TABLE quest_hints (
 ALTER TABLE quest_attempts ADD COLUMN file_sha256 TEXT;
 `,
   },
+  {
+    // Hero creation details and where the hero stands in the world (every hero starts at L1).
+    version: 4,
+    sql: `
+ALTER TABLE heroes ADD COLUMN race_description TEXT;
+ALTER TABLE heroes ADD COLUMN class_description TEXT;
+ALTER TABLE heroes ADD COLUMN location_slot TEXT NOT NULL DEFAULT 'L1';
+`,
+  },
 ];
