@@ -131,3 +131,24 @@ test('play.md says a beaten NPC is knocked out and warnings reset when a fight e
   assert.match(combat, /warnings (are cleared|reset|start over)/i);
   assert.doesNotMatch(combat, /winning a fight is a kill/i);
 });
+
+test('play.md teaches stamina: show, tiredness narration, and the collapse line', () => {
+  assert.match(play, /## Stamina/);
+  const stamina = play.slice(play.indexOf('## Stamina'));
+  assert.ok(stamina.includes('node game/cli.js stamina show'));
+  assert.match(stamina, /60%/);
+  assert.match(stamina, /mental/);
+  assert.match(stamina, /collapsed/i);
+  assert.match(stamina, /location/i);
+  assert.match(stamina, /hours/i);
+  assert.match(stamina, /never (tell|mention)[^.]*(number|percent)/i);
+});
+
+test('the README marks the stamina rows as built but not live-checked', () => {
+  const readme = readFileSync(join(root, 'README.md'), 'utf8');
+  const bar = readme.split('\n').find((l) => l.includes('Stamina bar from the real 5hr limit'));
+  assert.match(bar, /In progress/);
+  assert.match(bar, /live/i);
+  const penalties = readme.split('\n').find((l) => l.includes('Tiredness penalties'));
+  assert.match(penalties, /Done/);
+});
