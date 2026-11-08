@@ -524,7 +524,9 @@ function main() {
     case 'voice': {
       if (sub !== 'lint') fail(USAGE);
       arity(rest, 1, 1, 'voice lint "<text>"');
-      const { ok: clean, hits } = lintVoice(rest[0]);
+      // Before any save exists the lint runs in English.
+      const save = firstSave();
+      const { ok: clean, hits } = lintVoice(rest[0], save ? effectiveLanguage(db, save.id) : 'en');
       out({ ok: true, lint: clean, hits });
       break;
     }

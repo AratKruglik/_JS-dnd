@@ -4,3 +4,28 @@
 export default {
   'language.changed': 'Мову змінено на {name}.',
 };
+
+// What the Master is told about this language. DRAFT until Gogi has reviewed it.
+export const pack = {
+  // Chatbot phrases and calques from English helper-speak. Lowercase, at least two words, Cyrillic only.
+  bannedPhrases: [
+    'як штучний інтелект',
+    'як мовна модель',
+    'як ші',
+    'з радістю допоможу',
+    'із задоволенням допоможу',
+    'чудове запитання',
+    'гарне запитання',
+    'важливо зазначити',
+    'варто зазначити',
+    'сподіваюся, це допоможе',
+    'сподіваюсь, це допоможе',
+    'не соромтеся',
+    'дайте мені знати',
+    'на завершення',
+    'я перепрошую за',
+    'будь ласка, зверніть увагу',
+    'можете бути впевнені',
+    'зануримося в',
+  ],
+};

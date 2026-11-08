@@ -1101,3 +1101,20 @@ test('lang show and lang set work, reject bad input, and are not blocked by a co
   assert.equal(game.run('lang', 'show').status, 0);
   assert.equal(game.run('lang', 'set', 'en').status, 0);
 });
+
+test('voice lint follows the language of the save', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('voice', 'lint', 'Чудове запитання, мандрівнику.').json.hits, []);
+  game.run('lang', 'set', 'uk');
+  assert.deepEqual(game.run('voice', 'lint', 'Чудове запитання, мандрівнику.').json, {
+    ok: true,
+    lint: false,
+    hits: ['чудове запитання'],
+  });
+  assert.deepEqual(game.run('voice', 'lint', 'Великий міст зруйновано.').json.hits, []);
+});
+
+test('voice lint works before there is any save, in English', () => {
+  const { run } = install();
+  assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json.hits, ['great question']);
+});
