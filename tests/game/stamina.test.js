@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePayload, bandFor, renderBar, COLLAPSE_AT, WINDOW_MS } from '../../game/stamina.js';
+import { parsePayload, bandFor, renderBar, barColor, COLLAPSE_AT, WINDOW_MS } from '../../game/stamina.js';
 
 test('bands change exactly at 60, 80, 95 and the collapse at 98', () => {
   const at = (p) => bandFor(p);
@@ -59,4 +59,25 @@ test('parsePayload rejects percentages outside 0 to 100 and non-positive reset t
   for (const [used, resets] of [[-1, 5], [100.1, 5], [130, 5], [10, 0], [10, -4], [1e308, 5], [10, 1e308]]) {
     assert.equal(parsePayload(window(used, resets)), null, `${used} ${resets}`);
   }
+});
+
+test('the bar is green from 100 to 60 left, yellow from 59 to 40, and red from 39 to 0', () => {
+  const colorOf = (used) => barColor(used);
+  assert.deepEqual([colorOf(0), colorOf(40), colorOf(40.4)], ['green', 'green', 'green']);
+  assert.deepEqual([colorOf(40.6), colorOf(50), colorOf(60), colorOf(60.4)], ['yellow', 'yellow', 'yellow', 'yellow']);
+  assert.deepEqual([colorOf(60.6), colorOf(61), colorOf(98), colorOf(100)], ['red', 'red', 'red', 'red']);
+  assert.equal(colorOf(Number.NaN), 'green');
+});
+
+test('renderBar colors the whole line only when asked, and plain output has no escape codes', () => {
+  const now = Date.UTC(2026, 10, 8, 12, 0, 0);
+  const resetsAt = (now + 60 * 60 * 1000) / 1000;
+  const ESC = String.fromCharCode(27);
+  const plain = renderBar({ usedPercent: 38, resetsAt, estimated: false }, now);
+  assert.ok(!plain.includes(ESC));
+  const colored = (used) => renderBar({ usedPercent: used, resetsAt, estimated: false }, now, 10, { color: true });
+  assert.equal(colored(38), `${ESC}[32m${plain}${ESC}[0m`);
+  assert.ok(colored(50).startsWith(`${ESC}[33mSTAMINA`));
+  assert.ok(colored(70).startsWith(`${ESC}[31mSTAMINA`));
+  assert.ok(colored(70).endsWith(`${ESC}[0m`));
 });

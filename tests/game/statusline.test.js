@@ -29,11 +29,13 @@ function runBar(input, { withSave = true, withDb = true } = {}) {
   return { result, db, dbPath, ms: Date.now() - started };
 }
 
+const ESC = String.fromCharCode(27);
+const stripColor = (text) => text.split(`${ESC}[0m`).join('').replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '');
 const oneLine = (result) => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^[^\n]+\n$/);
   assert.ok(!result.stdout.includes(String.fromCharCode(0x2013)) && !result.stdout.includes(String.fromCharCode(0x2014)));
-  return result.stdout.trim();
+  return stripColor(result.stdout.trim());
 };
 
 test('a good payload is stored for the save and drawn as the bar, quickly', () => {
@@ -125,4 +127,17 @@ test('an older database is neither migrated nor waited on by the bar', () => {
   assert.ok(Date.now() - started < 2500, 'the bar waited on the lock');
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'stamina'").get().n, 0);
   assert.equal(MIGRATIONS.at(-1).version, 9);
+});
+
+test('the bar prints green, yellow, or red by how much stamina is left', () => {
+  const colorFor = (used) => runBar(JSON.stringify(payload(used))).result.stdout;
+  assert.ok(colorFor(30).startsWith(`${ESC}[32mSTAMINA`));
+  assert.ok(colorFor(50).startsWith(`${ESC}[33mSTAMINA`));
+  assert.ok(colorFor(80).startsWith(`${ESC}[31mSTAMINA`));
+  assert.ok(colorFor(80).trimEnd().endsWith(`${ESC}[0m`));
+});
+
+test('an unknown bar carries no color', () => {
+  const out = runBar('', { withDb: false }).result.stdout;
+  assert.equal(out, 'STAMINA unknown\n');
 });
