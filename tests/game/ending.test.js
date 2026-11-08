@@ -12,6 +12,8 @@ import { checkQuest, judgeQuest, revokeSolve } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { QUESTS } from '../../quests/index.js';
 import { freshDb, markSolved } from './helpers.js';
+import { setLanguage } from '../../game/i18n.js';
+import { questText } from '../../quests/text/index.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), '..', 'quests', 'solutions');
@@ -223,4 +225,16 @@ test('a reset or a solve in the same millisecond as the boss win does not count 
     .run(solved.saveId, at, at);
   markSolved(solved.db, solved.saveId, 'dice-roll', at);
   assert.equal(endingStatus(solved.db, solved.saveId).bossDefeated, false);
+});
+
+test('the ending page is built in the language of the save', () => {
+  const { db, saveId, solveAll, winBoss } = ready();
+  solveAll();
+  winBoss();
+  setLanguage(db, saveId, 'uk');
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-page-uk-'));
+  const html = readFileSync(buildEnding(db, saveId, { playerDir: dir }).file, 'utf8');
+  assert.match(html, /<html lang="uk">/);
+  assert.match(html, /кінець дороги/);
+  assert.ok(html.includes(questText('dice-roll', 'uk').title));
 });

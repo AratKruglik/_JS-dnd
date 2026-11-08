@@ -29,6 +29,41 @@ export default {
   'check.pass.totals': 'the right totals',
   'check.pass.everyTest': 'every test passes',
 
+  // The stamina bar and the collapse line, printed by scripts with no Master in between.
+  'stamina.bar': 'STAMINA {bar} {left}% left | resets in {reset}',
+  'stamina.barEstimated': 'STAMINA ~{bar} ~{left}% left (est.) | resets in {reset}',
+  'stamina.unknown': 'STAMINA unknown',
+  'stamina.duration': '{hours}h{minutes}m',
+  'stamina.collapse': {
+    one: "you're completely tired. you fell on the spot where you were standing at {location} for {count} hour",
+    other: "you're completely tired. you fell on the spot where you were standing at {location} for {count} hours",
+  },
+
+  // The ending page.
+  'ending.title': '{name}: the end of the road',
+  'ending.theHero': 'The hero',
+  'ending.subtitle': '{who} in {world}',
+  'ending.duration': '{hours}h {minutes}m',
+  'ending.tasksOf': '{solved} of {total}',
+  'ending.stat.time': 'Time played (estimated)',
+  'ending.stat.tasks': 'Tasks solved',
+  'ending.stat.enemies': 'Enemies defeated',
+  'ending.stat.fights': 'Fights fought',
+  'ending.stat.falls': 'Falls',
+  'ending.honor.heading': 'Honor over time',
+  'ending.honor.note': 'Dashed red lines mark a fall.',
+  'ending.fall': 'A fall: the dice were tampered with',
+  'ending.complexity.heading': 'Complexity you took on',
+  'ending.complexity.chart': 'Cumulative quest complexity over time',
+  'ending.complexity.total': '{total} total',
+  'ending.quests.heading': 'Quests',
+  'ending.col.quest': 'Quest',
+  'ending.col.rung': 'Rung',
+  'ending.col.complexity': 'Complexity',
+  'ending.col.hints': 'Hints',
+  'ending.col.solved': 'Solved',
+  'ending.empty': 'No data yet',
+
   // The code style check. English shows the linter's own text, these keys exist for the other languages.
   'style.line': 'line {line}: {message}',
   'style.formatting': 'formatting: line {line} should read "{text}"',

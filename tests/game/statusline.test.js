@@ -7,6 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { createSave } from '../../game/hero.js';
+import { setLanguage } from '../../game/i18n.js';
 import { MIGRATIONS } from '../../game/schema.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -174,4 +175,28 @@ test('the bar prints green, yellow, or red by how much stamina is left', () => {
 test('an unknown bar carries no color', () => {
   const out = runBar('', { withDb: false }).result.stdout;
   assert.equal(out, 'STAMINA unknown\n');
+});
+
+// A bar run against a save that has a language, with the payload given.
+function runBarIn(language, input) {
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-bar-lang-'));
+  const dbPath = join(dir, 'game.db');
+  const db = openGameDb(dbPath);
+  const saveId = createSave(db, {});
+  if (language) setLanguage(db, saveId, language);
+  return spawnSync('node', [script], { env: { ...process.env, JSDND_GAME_DB: dbPath }, input, encoding: 'utf8' });
+}
+
+test('the bar reads the language of the save: Ukrainian, English, and English when none is chosen', () => {
+  const uk = oneLine(runBarIn('uk', JSON.stringify(payload())));
+  assert.match(uk, /^ВИТРИВАЛІСТЬ \[######----\] 62% лишилось \| оновиться за 2 год 1\d хв$/);
+  assert.match(oneLine(runBarIn('en', JSON.stringify(payload()))), /^STAMINA \[######----\] 62% left/);
+  assert.match(oneLine(runBarIn(null, JSON.stringify(payload()))), /^STAMINA \[######----\] 62% left/);
+});
+
+test('with no reading the Ukrainian bar is an estimate in Ukrainian, and it stays coloured', () => {
+  const result = runBarIn('uk', '');
+  assert.match(oneLine(result), /^ВИТРИВАЛІСТЬ ~\[/);
+  assert.match(oneLine(result), /\(приблизно\)/);
+  assert.ok(result.stdout.startsWith(`${ESC}[3`));
 });

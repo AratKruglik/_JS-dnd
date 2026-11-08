@@ -1249,3 +1249,33 @@ test('the quest and move answers have the same shape in both languages, and the 
   assert.notEqual(ukrainian.list.quests[0].title, english.list.quests[0].title);
   assert.match(ukrainian.failed.expected, /дає/);
 });
+
+test('the collapse line is plural for the hours left, in English and in Ukrainian', () => {
+  const game = readyGame();
+  const words = [];
+  for (const [language, minutes] of [
+    ['en', 30],
+    ['en', 100],
+    ['uk', 30],
+    ['uk', 100],
+    ['uk', 290],
+  ]) {
+    game.run('lang', 'set', language);
+    setReading(game, 99, minutes);
+    const error = JSON.parse(game.run('go', 'L2').stderr.trim());
+    assert.equal(error.collapsed, true);
+    assert.equal(typeof error.hours, 'number');
+    words.push(error.error.split(' ').slice(-2).join(' '));
+  }
+  assert.deepEqual(words, ['1 hour', '2 hours', '1 годину', '2 години', '5 годин']);
+});
+
+test('the Ukrainian collapse line names the place and keeps the machine fields', () => {
+  const game = readyGame();
+  game.run('lang', 'set', 'uk');
+  setReading(game, 99, 100);
+  const error = JSON.parse(game.run('go', 'L2').stderr.trim());
+  assert.deepEqual([error.collapsed, error.location, error.hours], [true, 'Place 1', 2]);
+  assert.match(error.error, /виснажений/);
+  assert.match(error.error, /«Place 1»/);
+});

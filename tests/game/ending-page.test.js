@@ -206,3 +206,58 @@ test('a chart draws at most 300 dots, and values above the top stay inside the c
   const ys = [...high.matchAll(/cy="([^"]+)"/g)].map((m) => Number(m[1]));
   assert.ok(ys.length === 2 && ys.every((y) => y >= 16 && y <= 192), ys.join(','));
 });
+
+const ukStats = () =>
+  stats({
+    hero: { name: 'Більбо', race: 'halfling', heroClass: 'rogue', level: 1 },
+    setting: { name: 'Нічне місто' },
+    honor: [
+      { at: T(0), honor: 5, kind: 'clean_solve', reason: 'чесне рішення' },
+      { at: T(30), honor: -100, kind: 'reset', reason: 'кубики підроблено' },
+    ],
+    tasks: {
+      solved: 1,
+      total: 3,
+      list: [
+        { id: 'dice-roll', title: 'Власний кубик', rung: 1, complexity: 2, solvedAt: T(10), hintsUsed: 0, epoch: 0 },
+      ],
+    },
+    complexity: [{ at: T(10), cumulative: 2 }],
+  });
+
+// The text of a page: no style block, no tags, so what is left is what a player reads.
+const textOf = (html) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ');
+
+test('the Ukrainian page declares its language and carries no English words, only the player data', () => {
+  const html = renderPage(ukStats(), 'uk');
+  assert.match(html, /<html lang="uk">/);
+  assert.match(html, /<title>Більбо: кінець дороги<\/title>/);
+  const text = textOf(html);
+  assert.doesNotMatch(text, /[A-Za-z]/, text.match(/[A-Za-z]+/)?.[0]);
+  for (const heading of ['Честь з часом', 'Завдання', 'Падінь', 'Розвʼязано завдань'])
+    assert.ok(html.includes(heading), heading);
+  assert.match(html, /1 з 3/);
+  assert.match(html, /2 год 15 хв/);
+  assert.ok(!/NaN|Infinity|undefined|null/.test(html));
+});
+
+test('the Ukrainian page shows dates the way the language writes them, not as ISO text', () => {
+  const html = renderPage(ukStats(), 'uk');
+  const expected = new Intl.DateTimeFormat('uk', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(T(10)));
+  assert.ok(html.includes(expected), expected);
+  assert.ok(!html.includes('2026-11-08'));
+  assert.ok(renderPage(stats(), 'en').includes('2026-11-08'));
+});
+
+test('an empty Ukrainian chart says so in Ukrainian, and hostile text is still escaped', () => {
+  assert.match(lineChart([], { empty: 'Даних ще немає' }), /Даних ще немає/);
+  const evil = ukStats();
+  evil.hero.name = '<script>alert(1)</script>';
+  const html = renderPage(evil, 'uk');
+  assert.ok(!html.includes('<script'));
+  assert.ok(html.includes('&lt;script&gt;'));
+});
+
+test('English stays what it was: the default language gives the same page as asking for en', () => {
+  assert.equal(renderPage(stats()), renderPage(stats(), 'en'));
+});

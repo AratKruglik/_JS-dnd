@@ -29,6 +29,43 @@ export default {
   'check.pass.totals': 'правильні суми',
   'check.pass.everyTest': 'усі тести пройдено',
 
+  // Смуга витривалості та рядок про знесилення: їх друкують скрипти, Майстра між ними немає.
+  'stamina.bar': 'ВИТРИВАЛІСТЬ {bar} {left}% лишилось | оновиться за {reset}',
+  'stamina.barEstimated': 'ВИТРИВАЛІСТЬ ~{bar} ~{left}% лишилось (приблизно) | оновиться за {reset}',
+  'stamina.unknown': 'ВИТРИВАЛІСТЬ невідома',
+  'stamina.duration': '{hours} год {minutes} хв',
+  'stamina.collapse': {
+    one: 'ти геть виснажений. ти впав там, де стояв, у місці «{location}», на {count} годину',
+    few: 'ти геть виснажений. ти впав там, де стояв, у місці «{location}», на {count} години',
+    many: 'ти геть виснажений. ти впав там, де стояв, у місці «{location}», на {count} годин',
+    other: 'ти геть виснажений. ти впав там, де стояв, у місці «{location}», на {count} години',
+  },
+
+  // Сторінка фіналу.
+  'ending.title': '{name}: кінець дороги',
+  'ending.theHero': 'Герой',
+  'ending.subtitle': '{who} у світі «{world}»',
+  'ending.duration': '{hours} год {minutes} хв',
+  'ending.tasksOf': '{solved} з {total}',
+  'ending.stat.time': 'Зіграно (приблизно)',
+  'ending.stat.tasks': 'Розвʼязано завдань',
+  'ending.stat.enemies': 'Переможено ворогів',
+  'ending.stat.fights': 'Проведено боїв',
+  'ending.stat.falls': 'Падінь',
+  'ending.honor.heading': 'Честь з часом',
+  'ending.honor.note': 'Червоні пунктирні лінії позначають падіння.',
+  'ending.fall': 'Падіння: кубики підроблено',
+  'ending.complexity.heading': 'Складність, яку ти подолав',
+  'ending.complexity.chart': 'Сукупна складність завдань з часом',
+  'ending.complexity.total': 'разом {total}',
+  'ending.quests.heading': 'Завдання',
+  'ending.col.quest': 'Завдання',
+  'ending.col.rung': 'Щабель',
+  'ending.col.complexity': 'Складність',
+  'ending.col.hints': 'Підказки',
+  'ending.col.solved': 'Розвʼязано',
+  'ending.empty': 'Даних ще немає',
+
   // Перевірка стилю коду.
   'style.line': 'рядок {line}: {message}',
   'style.formatting': 'форматування: рядок {line} має виглядати так: "{text}"',

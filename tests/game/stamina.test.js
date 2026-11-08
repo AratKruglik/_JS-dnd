@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { t } from '../../game/i18n.js';
 import { parsePayload, bandFor, renderBar, barColor, COLLAPSE_AT, WINDOW_MS } from '../../game/stamina.js';
 
 test('bands change exactly at 60, 80, 95 and the collapse at 98', () => {
@@ -88,4 +89,36 @@ test('renderBar colors the whole line only when asked, and plain output has no e
   assert.ok(colored(50).startsWith(`${ESC}[33mSTAMINA`));
   assert.ok(colored(70).startsWith(`${ESC}[31mSTAMINA`));
   assert.ok(colored(70).endsWith(`${ESC}[0m`));
+});
+
+test('the Ukrainian bar says the same in Ukrainian, estimated or not, and keeps its colors', () => {
+  const now = Date.UTC(2026, 10, 8, 12, 0, 0);
+  const resetsAt = (now + (2 * 60 + 13) * 60 * 1000) / 1000;
+  const bar = (estimated, options = {}) =>
+    renderBar({ usedPercent: 38, resetsAt, estimated }, now, 10, { lang: 'uk', ...options });
+  assert.equal(bar(false), 'ВИТРИВАЛІСТЬ [######----] 62% лишилось | оновиться за 2 год 13 хв');
+  assert.equal(bar(true), 'ВИТРИВАЛІСТЬ ~[######----] ~62% лишилось (приблизно) | оновиться за 2 год 13 хв');
+  assert.ok(bar(false, { color: true }).startsWith(`${String.fromCharCode(27)}[32mВИТРИВАЛІСТЬ`));
+  assert.equal(
+    renderBar({ usedPercent: 38, resetsAt, estimated: false }, now, 10, { lang: 'en' }),
+    'STAMINA [######----] 62% left | resets in 2h13m',
+  );
+});
+
+test('the collapse line has the right plural for hours in both languages', () => {
+  const uk = (count) => t('uk', 'stamina.collapse', { location: 'Ринок', count });
+  const wordAfter = (text) => text.split(' ').slice(-2).join(' ');
+  assert.equal(wordAfter(uk(1)), '1 годину');
+  assert.equal(wordAfter(uk(2)), '2 години');
+  assert.equal(wordAfter(uk(5)), '5 годин');
+  assert.equal(wordAfter(uk(11)), '11 годин');
+  assert.equal(wordAfter(uk(12)), '12 годин');
+  assert.equal(wordAfter(uk(21)), '21 годину');
+  assert.equal(wordAfter(uk(22)), '22 години');
+  assert.equal(wordAfter(uk(25)), '25 годин');
+  assert.equal(wordAfter(uk(100)), '100 годин');
+  assert.equal(wordAfter(uk(101)), '101 годину');
+  assert.match(uk(2), /«Ринок»/);
+  assert.match(t('en', 'stamina.collapse', { location: 'the market', count: 1 }), /at the market for 1 hour$/);
+  assert.match(t('en', 'stamina.collapse', { location: 'the market', count: 3 }), /at the market for 3 hours$/);
 });

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { getProgress, defaultPlayerDir } from './quests.js';
 import { collectStats } from './ending-stats.js';
 import { renderPage } from './ending-page.js';
+import { effectiveLanguage } from './i18n.js';
 
 export const BOSS_SLOT = 'N7';
 
@@ -45,6 +46,6 @@ export function buildEnding(db, saveId, { playerDir = defaultPlayerDir() } = {})
   const stats = collectStats(db, saveId);
   mkdirSync(playerDir, { recursive: true });
   const file = join(playerDir, 'ending.html');
-  writeFileSync(file, renderPage(stats));
+  writeFileSync(file, renderPage(stats, effectiveLanguage(db, saveId)));
   return { file, minutes: stats.minutes };
 }

@@ -246,7 +246,7 @@ function main() {
         collapsed: true,
         location,
         hours: stamina.hours,
-        error: `you're completely tired. you fell on the spot where you were standing at ${location} for ${stamina.hours} hour(s)`,
+        error: t(effectiveLanguage(db, save.id), 'stamina.collapse', { location, count: stamina.hours }),
       }),
     );
     process.exit(1);
