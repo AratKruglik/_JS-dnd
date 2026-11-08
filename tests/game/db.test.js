@@ -21,7 +21,7 @@ test('migrate is idempotent', () => {
   const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
   assert.deepEqual(
     versions.map((row) => row.version),
-    [1],
+    [1, 2, 3],
   );
 });
 

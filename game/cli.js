@@ -5,14 +5,22 @@ import { rollAndLog } from './rolls.js';
 import { startFight, logFightStep, endFight, getFightLog } from './fights.js';
 import { checkDice } from './integrity.js';
 import { applyTamperReset } from './reset.js';
+import { applyHonorRule } from './honor-rules.js';
+import { classifyLink } from './links.js';
+import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from './quests.js';
+import { QUESTS } from '../quests/index.js';
 
 const USAGE = `Commands:
   init
   hero new <name> <race> <class> | hero show
   roll <spec> [--context "<text>"]
-  honor add <delta> <kind> "<reason>" | honor show
+  honor add <delta> <kind> "<reason>" | honor event <kind> ["<note>"] | honor show
   fight start "<reason>" | fight log <fightId> <actor> <action> ["<detail>"] [--roll <rollId>]
   fight end <fightId> <won|lost|fled|abandoned> | fight show <fightId>
+  quest list | quest start <id> | quest check <id> | quest progress
+  quest judge <id> <clean|cheated> ["<note>"]
+  quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
+  link check <url> | link use <questId> <url>
   integrity check`;
 
 // One line of compact JSON per answer keeps token use low for the Master.
@@ -48,6 +56,13 @@ function toInt(value, name) {
     throw new Error(`${name} must be a whole number, got "${value}".`);
   }
   return Number(value);
+}
+
+// New commands reject extra arguments instead of silently dropping them.
+function arity(args, min, max, usage) {
+  if (args.length < min || args.length > max) {
+    throw new Error(`Wrong number of arguments. Expected: ${usage}`);
+  }
 }
 
 function main() {
@@ -125,8 +140,57 @@ function main() {
           reason: need(reason, 'reason'),
         });
         out({ ok: true, honor });
+      } else if (sub === 'event') {
+        arity(rest, 1, 2, 'honor event <kind> ["<note>"]');
+        out({ ok: true, honor: applyHonorRule(db, currentSaveId(), rest[0], rest[1]) });
       } else if (sub === 'show') {
         out({ ok: true, honor: getHonor(db, currentSaveId()) });
+      } else fail(USAGE);
+      break;
+    }
+    case 'quest': {
+      const timeoutMs = process.env.JSDND_QUEST_TIMEOUT_MS ? Number(process.env.JSDND_QUEST_TIMEOUT_MS) : undefined;
+      if (sub === 'list') {
+        arity(rest, 0, 0, 'quest list');
+        const { solved } = getProgress(db, currentSaveId());
+        out({
+          ok: true,
+          quests: QUESTS.map((q) => ({
+            id: q.id,
+            title: q.title,
+            rung: q.rung,
+            complexity: q.complexity,
+            solved: solved.includes(q.id),
+          })),
+        });
+      } else if (sub === 'start') {
+        arity(rest, 1, 1, 'quest start <id>');
+        out({ ok: true, ...startQuest(rest[0]) });
+      } else if (sub === 'check') {
+        arity(rest, 1, 1, 'quest check <id>');
+        out({ ok: true, ...checkQuest(db, currentSaveId(), rest[0], { timeoutMs }) });
+      } else if (sub === 'judge') {
+        arity(rest, 2, 3, 'quest judge <id> <clean|cheated> ["<note>"]');
+        out({ ok: true, ...judgeQuest(db, currentSaveId(), rest[0], rest[1], rest[2]) });
+      } else if (sub === 'hint') {
+        arity(rest, 2, 3, 'quest hint <id> <kind> ["<note>"]');
+        out({ ok: true, ...logHint(db, currentSaveId(), rest[0], rest[1], rest[2]) });
+      } else if (sub === 'progress') {
+        arity(rest, 0, 0, 'quest progress');
+        out({ ok: true, ...getProgress(db, currentSaveId()) });
+      } else fail(USAGE);
+      break;
+    }
+    case 'link': {
+      if (sub === 'check') {
+        arity(rest, 1, 1, 'link check <url>');
+        out({ ok: true, ...classifyLink(rest[0]) });
+      } else if (sub === 'use') {
+        arity(rest, 2, 2, 'link use <questId> <url>');
+        const link = classifyLink(rest[1]);
+        const saveId = currentSaveId();
+        const { hintsUsed } = logHint(db, saveId, rest[0], link.legal ? 'legal_doc' : 'illegal_doc', rest[1]);
+        out({ ok: true, ...link, hintsUsed, honor: getHonor(db, saveId) });
       } else fail(USAGE);
       break;
     }

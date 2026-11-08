@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,8 @@ function install() {
     JSDND_GAME_DB: join(dir, 'game.db'),
     JSDND_DICE_PATH: join(dir, 'dice.js'),
     JSDND_DICE_SEAL: join(dir, 'dice.sha256'),
+    JSDND_PLAYER_DIR: join(dir, 'player'),
+    JSDND_QUEST_TIMEOUT_MS: '3000',
   };
   copyFileSync(realDice, env.JSDND_DICE_PATH);
   sealDice(env.JSDND_DICE_PATH, env.JSDND_DICE_SEAL);
@@ -203,4 +205,109 @@ test('parallel commands do not fail with a locked database', async () => {
   for (let i = 0; i < 20; i++) jobs.push(runOne('honor', 'show'), runOne('roll', 'd20'));
   const statuses = await Promise.all(jobs);
   assert.deepEqual(statuses.filter((s) => s !== 0), []);
+});
+
+const solutionFile = (id, kind = 'reference') => join(root, 'tests', 'quests', 'solutions', `${id}.${kind}.js`);
+
+test('quest list shows the three quests unsolved with complexity', () => {
+  const { run } = install();
+  run('init');
+  const result = run('quest', 'list');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.json.quests.map((q) => [q.id, q.solved]),
+    [
+      ['dice-roll', false],
+      ['string-shout', false],
+      ['array-sum', false],
+    ],
+  );
+  assert.ok(result.json.quests.every((q) => q.complexity >= 1));
+});
+
+test('quest start writes the stub and a second start does not overwrite edits', () => {
+  const { run } = install();
+  run('init');
+  const first = run('quest', 'start', 'dice-roll');
+  assert.equal(first.json.created, true);
+  appendFileSync(first.json.file, '// my edit\n');
+  const second = run('quest', 'start', 'dice-roll');
+  assert.equal(second.json.created, false);
+  assert.match(readFileSync(second.json.file, 'utf8'), /my edit/);
+});
+
+test('full loop: start, solve, check passes with tone, judge clean, progress, honor up', () => {
+  const { run } = install();
+  run('init');
+  const started = run('quest', 'start', 'dice-roll');
+  copyFileSync(solutionFile('dice-roll'), started.json.file);
+  const checked = run('quest', 'check', 'dice-roll');
+  assert.equal(checked.status, 0, checked.stderr);
+  assert.deepEqual([checked.json.status, checked.json.next, checked.json.tone], ['pass', 'judge', 'gentle']);
+  const judged = run('quest', 'judge', 'dice-roll', 'clean', 'looks honest');
+  assert.deepEqual([judged.json.solved, judged.json.honor], [true, 8]);
+  assert.deepEqual(run('quest', 'progress').json.solved, ['dice-roll']);
+  assert.equal(run('honor', 'show').json.honor, 8);
+});
+
+test('quest check on a failing file prints got and expected and exits 0 with next retry', () => {
+  const { run } = install();
+  run('init');
+  const started = run('quest', 'start', 'array-sum');
+  copyFileSync(solutionFile('array-sum', 'wrong'), started.json.file);
+  const checked = run('quest', 'check', 'array-sum');
+  assert.equal(checked.status, 0);
+  assert.equal(checked.json.status, 'fail');
+  assert.equal(checked.json.next, 'retry');
+  assert.ok(checked.json.got && checked.json.expected);
+  assert.equal(checked.json.tone, undefined);
+});
+
+test('an infinite-loop player file returns status timeout and the CLI still exits 0', () => {
+  const { run } = install();
+  run('init');
+  const started = run('quest', 'start', 'string-shout');
+  writeFileSync(started.json.file, 'export function shout() { while (true) {} }\n');
+  const checked = run('quest', 'check', 'string-shout');
+  assert.equal(checked.status, 0, checked.stderr);
+  assert.equal(checked.json.status, 'timeout');
+});
+
+test('link check classifies a legal and an illegal link; link use lowers honor for illegal ones', () => {
+  const { run } = install();
+  run('init');
+  assert.equal(run('link', 'check', 'https://developer.mozilla.org/en-US/docs/Web/JavaScript').json.legal, true);
+  assert.equal(run('link', 'check', 'https://stackoverflow.com/q/1').json.legal, false);
+  const legal = run('link', 'use', 'dice-roll', 'https://javascript.info/');
+  assert.deepEqual([legal.json.legal, legal.json.hintsUsed, legal.json.honor], [true, 1, 0]);
+  const illegal = run('link', 'use', 'dice-roll', 'https://stackoverflow.com/q/1');
+  assert.deepEqual([illegal.json.legal, illegal.json.hintsUsed, illegal.json.honor], [false, 2, -2]);
+});
+
+test('honor event applies the table delta and an unknown kind exits 1 with a JSON error', () => {
+  const { run } = install();
+  run('init');
+  assert.equal(run('honor', 'event', 'swearing', 'cursed at the baker').json.honor, -2);
+  const bad = run('honor', 'event', 'moonwalk');
+  assert.equal(bad.status, 1);
+  assert.match(JSON.parse(bad.stderr.trim()).error, /unknown honor kind/i);
+});
+
+test('quest hint logs a hint and extra arguments are rejected on the new commands', () => {
+  const { run } = install();
+  run('init');
+  assert.equal(run('quest', 'hint', 'dice-roll', 'npc_speech', 'the old wizard rambled').json.hintsUsed, 1);
+  for (const args of [['quest', 'progress', 'extra'], ['link', 'check', 'a', 'b'], ['quest', 'list', 'x']]) {
+    const result = run(...args);
+    assert.equal(result.status, 1, `${args.join(' ')} should be rejected`);
+    assert.match(JSON.parse(result.stderr.trim()).error, /argument/i);
+  }
+});
+
+test('tampering with the dice blocks quest commands with exit 2', () => {
+  const { env, run } = install();
+  run('init');
+  appendFileSync(env.JSDND_DICE_PATH, '\n// cheat\n');
+  assert.equal(run('quest', 'list').status, 2);
+  assert.equal(run('quest', 'check', 'dice-roll').status, 2);
 });

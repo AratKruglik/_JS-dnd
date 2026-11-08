@@ -72,4 +72,55 @@ CREATE TABLE resets (
 );
 `,
   },
+  {
+    version: 2,
+    sql: `
+CREATE TABLE quest_attempts (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  quest_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pass', 'fail', 'error', 'timeout')),
+  expected TEXT NOT NULL,
+  got TEXT NOT NULL,
+  message TEXT NOT NULL,
+  complexity INTEGER NOT NULL
+);
+CREATE TABLE quest_judgments (
+  id INTEGER PRIMARY KEY,
+  attempt_id INTEGER NOT NULL UNIQUE REFERENCES quest_attempts (id),
+  created_at TEXT NOT NULL,
+  verdict TEXT NOT NULL CHECK (verdict IN ('clean', 'cheated')),
+  note TEXT
+);
+CREATE TABLE quest_solves (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  quest_id TEXT NOT NULL,
+  attempt_id INTEGER NOT NULL REFERENCES quest_attempts (id),
+  solved_at TEXT NOT NULL,
+  epoch INTEGER NOT NULL,
+  hints_used INTEGER NOT NULL,
+  complexity INTEGER NOT NULL,
+  UNIQUE (save_id, quest_id, epoch)
+);
+CREATE TABLE quest_hints (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  quest_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  epoch INTEGER NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('npc_speech', 'legal_doc', 'illegal_doc', 'master_leak')),
+  note TEXT
+);
+`,
+  },
+  {
+    // Fingerprint of the player file as it was when step 1 ran, so step 2 can refuse to
+    // judge code that changed (or rewrote itself) after the check.
+    version: 3,
+    sql: `
+ALTER TABLE quest_attempts ADD COLUMN file_sha256 TEXT;
+`,
+  },
 ];
