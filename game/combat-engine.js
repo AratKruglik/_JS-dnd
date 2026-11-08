@@ -7,6 +7,8 @@ import { abilityMod, heroStats, ENEMY_TIERS, attackRoll, damageRoll, initiativeR
 import { getQuest } from '../quests/index.js';
 import { SKELETON } from '../world/skeleton.js';
 import { knockOut, requireAwake } from './knockouts.js';
+import { getProgress } from './quests.js';
+import { BOSS_SLOT, endingStatus } from './ending.js';
 
 const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
@@ -94,6 +96,11 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
   if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
   if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
   requireAwake(db, saveId, slot);
+  if (slot === BOSS_SLOT) {
+    const { remaining } = getProgress(db, saveId);
+    if (remaining.length) throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
+    if (tier !== 'tough') throw new Error('The final boss is always tough.');
+  }
 
   if (aggressor === 'npc' && !questId) {
     const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
@@ -167,7 +174,9 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
       clearWarnings(db, fight);
       const kind = fight.aggressor === 'npc' ? 'kill_self_defense' : 'kill_unprovoked';
       const honor = applyHonorRule(db, saveId, kind, `defeated ${fight.enemy_name}`);
-      return stateOf(db, fight.id, { honor });
+      const extras = { honor };
+      if (fight.npc_slot === BOSS_SLOT && endingStatus(db, saveId).unlocked) extras.endingUnlocked = true;
+      return stateOf(db, fight.id, extras);
     }
 
     return enemyResponds(db, saveId, fight.id, hero, rng, modifiers);
