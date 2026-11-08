@@ -11,5 +11,10 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node \"${CLAUDE_PROJECT_DIR:-.}/game/statusline.js\"",
+    "refreshInterval": 60
   }
 }
