@@ -137,3 +137,14 @@ if (token) {
 export function solve() { return 0; }`;
   assert.equal(run(forge).status, 'fail');
 });
+
+test('a solve that returns a promise that never settles is named as such', () => {
+  const result = run('export function solve() { return new Promise(() => {}); }');
+  assert.equal(result.status, 'error');
+  assert.match(result.message, /never (finished|settled)/i);
+});
+
+test('a solve that settles late still passes', () => {
+  const late = run('export function solve(a, b) { return new Promise((done) => setTimeout(() => done(a + b), 80)); }');
+  assert.equal(late.status, 'pass');
+});

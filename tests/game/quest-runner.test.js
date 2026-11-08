@@ -95,3 +95,23 @@ if (token) {
 export function answer() { return 41; }`;
   assert.equal(run(forge).status, 'fail');
 });
+
+test('a function that returns a promise that never settles is named as such, not as a crash', () => {
+  const result = run('export function answer() { return new Promise(() => {}); }');
+  assert.equal(result.status, 'error');
+  assert.match(result.message, /never (finished|settled)/i);
+  assert.doesNotMatch(result.message, /stopped the program/i);
+});
+
+test('a top-level await that never settles gets the same clear message', () => {
+  const result = run('await new Promise(() => {});\nexport function answer() { return 42; }');
+  assert.equal(result.status, 'error');
+  assert.match(result.message, /never (finished|settled)/i);
+});
+
+test('a promise that settles late still passes, and a real infinite loop is still a timeout', () => {
+  const late = run('export function answer() { return new Promise((done) => setTimeout(() => done(42), 80)); }');
+  assert.equal(late.status, 'pass');
+  const loop = run('export function answer() { while (true) {} }', { timeoutMs: 500 });
+  assert.equal(loop.status, 'timeout');
+});

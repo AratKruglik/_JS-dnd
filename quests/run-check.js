@@ -20,6 +20,15 @@ function emit(result) {
   process.stdout.write(line, () => process.exit(0));
 }
 
+// If the event loop runs dry before a result was printed, something player code returned (or a
+// top-level await in their file) will never settle. Say so, instead of exiting without a word.
+process.once('beforeExit', () =>
+  emit({
+    status: 'error',
+    message: 'Your code never finished: a promise it returned never settled, so the check had no answer to read.',
+  }),
+);
+
 try {
   const registry = await import(questsModule ? pathToFileURL(resolve(questsModule)).href : './index.js');
   const quest = registry.getQuest(questId);
