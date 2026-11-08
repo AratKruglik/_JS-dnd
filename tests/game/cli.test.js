@@ -944,3 +944,59 @@ test('the legacy fight commands still work for a plain logged fight', () => {
   assert.equal(game.run('fight', 'log', String(started.json.fightId), 'hero', 'swing').status, 0);
   assert.equal(game.run('fight', 'end', String(started.json.fightId), 'won').status, 0);
 });
+
+const MESSY_SHOUT = 'export function shout(text) {\n  var t = text.trim().toUpperCase()\n  return t + "!"\n}\n';
+
+function messyShout(game) {
+  mkdirSync(game.env.JSDND_PLAYER_DIR, { recursive: true });
+  writeFileSync(join(game.env.JSDND_PLAYER_DIR, 'string-shout.js'), MESSY_SHOUT);
+}
+
+test('quest check carries the style result on a pass, and quest style shows it again', () => {
+  const game = readyGame();
+  messyShout(game);
+  const checked = game.run('quest', 'check', 'string-shout');
+  assert.equal(checked.status, 0, checked.stderr);
+  assert.equal(checked.json.status, 'pass');
+  assert.equal(checked.json.style.ok, false);
+  assert.ok(checked.json.style.problems.some((p) => /no-var/.test(p)));
+  const again = game.run('quest', 'style', 'string-shout');
+  assert.deepEqual(again.json.problems, checked.json.style.problems);
+  assert.equal(game.run('quest', 'style', 'string-shout', 'extra').status, 1);
+  assert.equal(game.run('quest', 'style').status, 1);
+});
+
+test('quest start hands over the style directions', () => {
+  const game = readyGame();
+  const started = game.run('quest', 'start', 'string-shout');
+  assert.equal(started.json.style.general.length, 9);
+});
+
+test('declining the style costs 2 honor once, and a clean file has nothing to decline', () => {
+  const game = readyGame();
+  messyShout(game);
+  assert.equal(game.run('quest', 'style-decline', 'string-shout').status, 1);
+  game.run('quest', 'check', 'string-shout');
+  const declined = game.run('quest', 'style-decline', 'string-shout');
+  assert.equal(declined.status, 0, declined.stderr);
+  assert.equal(declined.json.honor, -2);
+  assert.equal(game.run('quest', 'style-decline', 'string-shout').status, 1);
+  assert.equal(game.run('honor', 'show').json.honor, -2);
+  assert.equal(game.run('quest', 'style-decline', 'string-shout', 'x').status, 1);
+});
+
+test('style commands are listed in the usage and blocked while collapsed', () => {
+  const game = readyGame();
+  const usage = game.run().stderr;
+  assert.match(usage, /quest style <id>/);
+  assert.match(usage, /quest style-decline <id>/);
+  setReading(game, 99);
+  for (const args of [
+    ['quest', 'style', 'string-shout'],
+    ['quest', 'style-decline', 'string-shout'],
+  ]) {
+    const result = game.run(...args);
+    assert.equal(result.status, 1);
+    assert.equal(JSON.parse(result.stderr.trim()).collapsed, true);
+  }
+});

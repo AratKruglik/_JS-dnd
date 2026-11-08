@@ -7,7 +7,9 @@ import { checkDice } from './integrity.js';
 import { applyTamperReset } from './reset.js';
 import { applyHonorRule } from './honor-rules.js';
 import { classifyLink } from './links.js';
-import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from './quests.js';
+import { startQuest, checkQuest, judgeQuest, logHint, getProgress, declineStyle, defaultPlayerDir } from './quests.js';
+import { checkStyle } from './style-check.js';
+import { join } from 'node:path';
 import { QUESTS } from '../quests/index.js';
 import { createHeroFromChoices } from './hero.js';
 import { ABILITIES, ALIASES, POINT_BUY_BUDGET, POINT_BUY_COSTS, STANDARD_CLASSES, STANDARD_RACES } from './rules.js';
@@ -40,6 +42,7 @@ const USAGE = `Commands:
   move propose --data -   (problem JSON on stdin) | move check <moveId>
   quest list | quest start <id> | quest check <id> | quest progress
   quest judge <id> <clean|cheated> ["<note>"]
+  quest style <id> | quest style-decline <id>
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
   link check <url> | link use <questId> <url>
   stamina show
@@ -65,6 +68,8 @@ const BLOCKED_WHEN_COLLAPSED = new Set([
   'quest check',
   'quest judge',
   'quest hint',
+  'quest style',
+  'quest style-decline',
   'link use',
 ]);
 
@@ -320,7 +325,15 @@ function main() {
         out({ ok: true, ...startQuest(rest[0]) });
       } else if (sub === 'check') {
         arity(rest, 1, 1, 'quest check <id>');
-        out({ ok: true, ...checkQuest(db, currentSaveId(), rest[0], { timeoutMs }) });
+        out({ ok: true, ...checkQuest(db, currentSaveId(), rest[0], { timeoutMs, style: true }) });
+      } else if (sub === 'style') {
+        arity(rest, 1, 1, 'quest style <id>');
+        const quest = QUESTS.find((q) => q.id === rest[0]);
+        if (!quest) throw new Error(`Unknown quest "${rest[0]}".`);
+        out({ ok: true, questId: quest.id, ...checkStyle(join(defaultPlayerDir(), `${quest.id}.js`)) });
+      } else if (sub === 'style-decline') {
+        arity(rest, 1, 1, 'quest style-decline <id>');
+        out({ ok: true, ...declineStyle(db, currentSaveId(), rest[0]) });
       } else if (sub === 'judge') {
         arity(rest, 2, 3, 'quest judge <id> <clean|cheated> ["<note>"]');
         out({ ok: true, ...judgeQuest(db, currentSaveId(), rest[0], rest[1], rest[2]) });
