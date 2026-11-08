@@ -9,6 +9,6 @@ export const rules = {
 };
 
 export default [
-  { ignores: ['node_modules/**', 'data/**', 'player/**', '.dev/**', 'game/dice.js'] },
+  { ignores: ['node_modules/**', 'data/**', 'player/**', '.dev/**', 'game/dice.js', 'game/rolls.js'] },
   { files: ['**/*.js'], languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }, rules },
 ];

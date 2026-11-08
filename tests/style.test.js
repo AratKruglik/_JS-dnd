@@ -26,3 +26,9 @@ test('game/dice.js is never touched by the formatter or the linter', () => {
   assert.match(readFileSync(join(root, '.prettierignore'), 'utf8'), /^game\/dice\.js$/m);
   assert.match(readFileSync(join(root, 'eslint.config.js'), 'utf8'), /game\/dice\.js/);
 });
+
+test('game/rolls.js is sealed, so no formatter, linter, or line ending rule may change it', () => {
+  assert.match(readFileSync(join(root, '.prettierignore'), 'utf8'), /^game\/rolls\.js$/m);
+  assert.match(readFileSync(join(root, 'eslint.config.js'), 'utf8'), /game\/rolls\.js/);
+  assert.match(readFileSync(join(root, '.gitattributes'), 'utf8'), /^game\/rolls\.js text eol=lf$/m);
+});

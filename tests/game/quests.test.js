@@ -4,7 +4,9 @@ import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from '../../game/quests.js';
+import { startQuest, checkQuest, judgeQuest, logHint, getProgress, revokeSolve } from '../../game/quests.js';
+import { knockOut } from '../../game/knockouts.js';
+import { talk } from '../../game/world.js';
 import { QUESTS } from '../../quests/index.js';
 import { createSave, createHero, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
@@ -197,11 +199,12 @@ test('getProgress lists solved and remaining in registry order', () => {
 test('judging is rejected when the file changed after the check', () => {
   const { db, saveId, playerDir, opts, put, judge } = setup();
   markSolvedBefore(db, saveId, 'array-sum');
+  const judgmentsBefore = count(db, 'quest_judgments');
   put('array-sum');
   checkQuest(db, saveId, 'array-sum', opts);
   appendFileSync(join(playerDir, 'array-sum.js'), '\n// edited after the check\n');
   assert.throws(() => judge('array-sum', 'clean'), /changed/i);
-  assert.equal(count(db, 'quest_judgments'), 0);
+  assert.equal(count(db, 'quest_judgments'), judgmentsBefore);
   checkQuest(db, saveId, 'array-sum', opts);
   assert.equal(judge('array-sum', 'clean').solved, true);
 });
@@ -309,4 +312,73 @@ test('judging is refused when an earlier quest stopped counting after a reset', 
 test('startQuest without a database still writes the stub, for tools that have no save', () => {
   const { playerDir } = bare();
   assert.equal(startQuest('array-sum', { playerDir }).created, true);
+});
+
+test('a late cheated verdict revokes a judged solve, once, with the cheat penalty', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  assert.equal(getHonor(db, saveId), 8);
+
+  const revoked = revokeSolve(db, saveId, 'dice-roll', 'copied the dice file');
+  assert.equal(revoked.revoked, true);
+  assert.equal(getHonor(db, saveId), 8 - 15);
+  assert.deepEqual(getProgress(db, saveId).solved, []);
+  assert.equal(getHonorHistory(db, saveId).at(-1).kind, 'cheat');
+  assert.throws(() => revokeSolve(db, saveId, 'dice-roll', 'again'), /already revoked/i);
+  assert.equal(getHonor(db, saveId), 8 - 15);
+});
+
+test('only a solved quest of this epoch can be revoked', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  assert.throws(() => revokeSolve(db, saveId, 'dice-roll', 'x'), /not solved/i);
+  assert.throws(() => revokeSolve(db, saveId, 'nope', 'x'), /unknown quest/i);
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  applyTamperReset(db, saveId, { expected: 'a', found: 'b' });
+  assert.throws(() => revokeSolve(db, saveId, 'dice-roll', 'x'), /not solved/i);
+});
+
+test('a revoked quest can be solved again, in the same row, and counts once more', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  revokeSolve(db, saveId, 'dice-roll', 'cheated');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  assert.equal(judge('dice-roll', 'clean').solved, true);
+  assert.deepEqual(getProgress(db, saveId).solved, ['dice-roll']);
+  const rows = db.prepare("SELECT revoked_at FROM quest_solves WHERE quest_id = 'dice-roll'").all();
+  assert.deepEqual(
+    rows.map((r) => r.revoked_at),
+    [null],
+  );
+});
+
+test('a revoke and a new solve still wake an NPC the hero knocked out', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  knockOut(db, saveId, 'N1');
+  assert.throws(() => talk(db, saveId, 'N1'), /knocked out/i);
+  revokeSolve(db, saveId, 'dice-roll', 'cheated');
+  assert.throws(() => talk(db, saveId, 'N1'), /knocked out/i);
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  assert.equal(talk(db, saveId, 'N1').npc.slot, 'N1');
+});
+
+test('a failure while revoking leaves the solve and the honor alone', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  db.exec("CREATE TRIGGER boom BEFORE INSERT ON honor_events BEGIN SELECT RAISE(ABORT, 'boom'); END");
+  assert.throws(() => revokeSolve(db, saveId, 'dice-roll', 'x'), /boom/);
+  db.exec('DROP TRIGGER boom');
+  assert.deepEqual(getProgress(db, saveId).solved, ['dice-roll']);
+  assert.equal(getHonor(db, saveId), 8);
 });

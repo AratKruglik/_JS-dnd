@@ -246,4 +246,11 @@ CREATE TABLE style_declines (
 );
 `,
   },
+  {
+    // A solve the Master later found was cheated is revoked, not deleted: the row stays as history.
+    version: 11,
+    sql: `
+ALTER TABLE quest_solves ADD COLUMN revoked_at TEXT;
+`,
+  },
 ];

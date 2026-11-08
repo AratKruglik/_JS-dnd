@@ -14,7 +14,7 @@ export function endingStatus(db, saveId) {
   // The boss must fall after the latest solve of this epoch. A quest added or solved later reopens
   // the road, so the boss has to be beaten again.
   const lastSolve = db
-    .prepare('SELECT MAX(solved_at) AS at FROM quest_solves WHERE save_id = ? AND epoch = ?')
+    .prepare('SELECT MAX(solved_at) AS at FROM quest_solves WHERE save_id = ? AND epoch = ? AND revoked_at IS NULL')
     .get(saveId, progress.epoch).at;
   const bossDefeated = Boolean(
     db

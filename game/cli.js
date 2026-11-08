@@ -7,7 +7,16 @@ import { checkDice } from './integrity.js';
 import { applyTamperReset } from './reset.js';
 import { applyHonorRule } from './honor-rules.js';
 import { classifyLink } from './links.js';
-import { startQuest, checkQuest, judgeQuest, logHint, getProgress, declineStyle, defaultPlayerDir } from './quests.js';
+import {
+  startQuest,
+  checkQuest,
+  judgeQuest,
+  logHint,
+  getProgress,
+  declineStyle,
+  defaultPlayerDir,
+  revokeSolve,
+} from './quests.js';
 import { checkStyle } from './style-check.js';
 import { join } from 'node:path';
 import { QUESTS } from '../quests/index.js';
@@ -43,6 +52,7 @@ const USAGE = `Commands:
   quest list | quest start <id> | quest check <id> | quest progress
   quest judge <id> <clean|cheated> ["<note>"]
   quest style <id> | quest style-decline <id>
+  quest revoke <id> ["<note>"]
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
   link check <url> | link use <questId> <url>
   stamina show
@@ -70,6 +80,7 @@ const BLOCKED_WHEN_COLLAPSED = new Set([
   'quest hint',
   'quest style',
   'quest style-decline',
+  'quest revoke',
   'link use',
 ]);
 
@@ -204,7 +215,7 @@ function main() {
       tamper: true,
       reason: check.reason,
       reset,
-      message: 'The dice were tampered with. Restore game/dice.js to continue.',
+      message: 'The dice were tampered with. Restore game/dice.js and game/rolls.js to continue.',
     });
     process.exit(2);
   }
@@ -336,6 +347,9 @@ function main() {
       } else if (sub === 'style-decline') {
         arity(rest, 1, 1, 'quest style-decline <id>');
         out({ ok: true, ...declineStyle(db, currentSaveId(), rest[0]) });
+      } else if (sub === 'revoke') {
+        arity(rest, 1, 2, 'quest revoke <id> ["<note>"]');
+        out({ ok: true, ...revokeSolve(db, currentSaveId(), rest[0], rest[1]) });
       } else if (sub === 'judge') {
         arity(rest, 2, 3, 'quest judge <id> <clean|cheated> ["<note>"]');
         out({ ok: true, ...judgeQuest(db, currentSaveId(), rest[0], rest[1], rest[2]) });

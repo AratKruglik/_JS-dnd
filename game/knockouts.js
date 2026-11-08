@@ -1,6 +1,12 @@
 // A fight won against an NPC knocks them out, it does not kill them. They stay out cold until
-// the hero solves another quest, which is counted across all epochs so a reset cannot wake them.
-const solveCount = (db, saveId) => db.prepare('SELECT COUNT(*) AS n FROM quest_solves WHERE save_id = ?').get(saveId).n;
+// the hero solves another quest. Clean verdicts are counted across all epochs, so a reset cannot
+// wake them, while a revoked solve that is solved again still counts as a new solve.
+const solveCount = (db, saveId) =>
+  db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM quest_judgments j JOIN quest_attempts a ON a.id = j.attempt_id WHERE a.save_id = ? AND j.verdict = 'clean'",
+    )
+    .get(saveId).n;
 
 export function knockOut(db, saveId, npcSlot) {
   db.prepare(

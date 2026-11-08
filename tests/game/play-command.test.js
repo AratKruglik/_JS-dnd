@@ -217,3 +217,9 @@ test('play.md says quests open in order and where the file path comes from', () 
   assert.match(quests, /not open yet/i);
   assert.match(quests, /`file`/);
 });
+
+test('play.md tells the Master how to take back a solve it later finds was cheated', () => {
+  const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
+  assert.ok(quests.includes('node game/cli.js quest revoke'));
+  assert.match(quests, /after a solve/i);
+});

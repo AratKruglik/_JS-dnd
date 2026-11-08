@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { sealDice } from '../../game/integrity.js';
-import { count, markSolvedBefore } from './helpers.js';
+import { count, markSolved, markSolvedBefore } from './helpers.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { QUESTS } from '../../quests/index.js';
@@ -23,12 +23,14 @@ function install() {
     ...process.env,
     JSDND_GAME_DB: join(dir, 'game.db'),
     JSDND_DICE_PATH: join(dir, 'dice.js'),
+    JSDND_ROLLS_PATH: join(dir, 'rolls.js'),
     JSDND_DICE_SEAL: join(dir, 'dice.sha256'),
     JSDND_PLAYER_DIR: join(dir, 'player'),
     JSDND_QUEST_TIMEOUT_MS: '3000',
   };
   copyFileSync(realDice, env.JSDND_DICE_PATH);
-  sealDice(env.JSDND_DICE_PATH, env.JSDND_DICE_SEAL);
+  copyFileSync(join(root, 'game', 'rolls.js'), env.JSDND_ROLLS_PATH);
+  sealDice(env.JSDND_DICE_PATH, env.JSDND_DICE_SEAL, env.JSDND_ROLLS_PATH);
   const runWith = (input, args) => {
     const result = spawnSync('node', [cli, ...args], { cwd: dir, env, encoding: 'utf8', input });
     return { ...result, json: result.stdout.trim() ? JSON.parse(result.stdout) : null };
@@ -1013,4 +1015,37 @@ test('quest start, check, and list print the real file path under the player fol
   assert.equal(game.run('quest', 'check', 'dice-roll').json.file, where('dice-roll'));
   const files = game.run('quest', 'list').json.quests.map((q) => q.file);
   assert.deepEqual(files, ['dice-roll', 'string-shout', 'array-sum'].map(where));
+});
+
+test('editing rolls.js exits 2 like editing the dice, and the message names both files', () => {
+  const game = readyGame();
+  appendFileSync(game.env.JSDND_ROLLS_PATH, '\n// rigged\n');
+  const result = game.run('look');
+  assert.equal(result.status, 2);
+  assert.equal(result.json.tamper, true);
+  assert.match(result.json.message, /game\/dice\.js/);
+  assert.match(result.json.message, /game\/rolls\.js/);
+  assert.equal(game.run('look').json.reset, false);
+});
+
+test('quest revoke takes a judged solve back, costs the cheat penalty once, and is in the usage', () => {
+  const game = readyGame();
+  markSolved(game.db(), 1, 'dice-roll');
+  assert.match(game.run().stderr, /quest revoke <id>/);
+  const revoked = game.run('quest', 'revoke', 'dice-roll', 'copied the dice file');
+  assert.equal(revoked.status, 0, revoked.stderr);
+  assert.deepEqual([revoked.json.revoked, revoked.json.honor], [true, -15]);
+  assert.deepEqual(game.run('quest', 'progress').json.solved, []);
+  assert.equal(game.run('quest', 'revoke', 'dice-roll', 'again').status, 1);
+  assert.equal(game.run('quest', 'revoke').status, 1);
+  assert.equal(game.run('quest', 'revoke', 'dice-roll', 'a', 'b').status, 1);
+});
+
+test('quest revoke is blocked while the hero is collapsed', () => {
+  const game = readyGame();
+  markSolved(game.db(), 1, 'dice-roll');
+  setReading(game, 99);
+  const result = game.run('quest', 'revoke', 'dice-roll', 'x');
+  assert.equal(result.status, 1);
+  assert.equal(JSON.parse(result.stderr.trim()).collapsed, true);
 });

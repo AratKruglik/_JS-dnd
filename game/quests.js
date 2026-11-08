@@ -145,11 +145,10 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       throw new Error(`The latest attempt for "${quest.id}" is already judged.`);
     }
     const epoch = epochOf(db, saveId);
-    if (
-      db
-        .prepare('SELECT 1 FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
-        .get(saveId, quest.id, epoch)
-    ) {
+    const existing = db
+      .prepare('SELECT id, revoked_at FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+      .get(saveId, quest.id, epoch);
+    if (existing && existing.revoked_at === null) {
       throw new Error(`Quest "${quest.id}" is already solved.`);
     }
     // Attempts from before migration 3 have no fingerprint and are not checked.
@@ -168,9 +167,16 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       return { solved: false, honor: applyHonorRule(db, saveId, 'cheat', note ?? `cheated on ${quest.id}`) };
     }
     const hints = hintsUsed(db, saveId, quest.id, epoch);
-    db.prepare(
-      'INSERT INTO quest_solves (save_id, quest_id, attempt_id, solved_at, epoch, hints_used, complexity) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(saveId, quest.id, attempt.id, now(), epoch, hints, quest.complexity);
+    if (existing) {
+      // A revoked solve is solved again in the same row (one row per quest and epoch).
+      db.prepare(
+        'UPDATE quest_solves SET attempt_id = ?, solved_at = ?, hints_used = ?, complexity = ?, revoked_at = NULL WHERE id = ?',
+      ).run(attempt.id, now(), hints, quest.complexity, existing.id);
+    } else {
+      db.prepare(
+        'INSERT INTO quest_solves (save_id, quest_id, attempt_id, solved_at, epoch, hints_used, complexity) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(saveId, quest.id, attempt.id, now(), epoch, hints, quest.complexity);
+    }
     const honor = applyHonorRule(
       db,
       saveId,
@@ -178,6 +184,25 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       `solved ${quest.id}`,
     );
     return { solved: true, honor };
+  });
+}
+
+// The Master found cheating after a solve was judged clean. The solve stops counting, the cheat
+// penalty applies once, and the quest can be solved again.
+export function revokeSolve(db, saveId, questId, note = null) {
+  const quest = requireQuest(questId);
+  return inTransaction(db, () => {
+    const epoch = epochOf(db, saveId);
+    const solve = db
+      .prepare('SELECT id, revoked_at FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+      .get(saveId, quest.id, epoch);
+    if (!solve) throw new Error(`Quest "${quest.id}" is not solved in this epoch, so there is nothing to revoke.`);
+    if (solve.revoked_at !== null) throw new Error(`The solve of "${quest.id}" is already revoked.`);
+    db.prepare('UPDATE quest_solves SET revoked_at = ? WHERE id = ?').run(now(), solve.id);
+    return {
+      revoked: true,
+      honor: applyHonorRule(db, saveId, 'cheat', note ?? `cheated on ${quest.id}, found after the solve`),
+    };
   });
 }
 
@@ -199,7 +224,7 @@ export function getProgress(db, saveId) {
   const epoch = epochOf(db, saveId);
   const solvedIds = new Set(
     db
-      .prepare('SELECT quest_id FROM quest_solves WHERE save_id = ? AND epoch = ?')
+      .prepare('SELECT quest_id FROM quest_solves WHERE save_id = ? AND epoch = ? AND revoked_at IS NULL')
       .all(saveId, epoch)
       .map((r) => r.quest_id),
   );

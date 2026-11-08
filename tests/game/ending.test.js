@@ -8,7 +8,7 @@ import { endingStatus, buildEnding } from '../../game/ending.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
-import { checkQuest, judgeQuest } from '../../game/quests.js';
+import { checkQuest, judgeQuest, revokeSolve } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { QUESTS } from '../../quests/index.js';
 import { freshDb, markSolved } from './helpers.js';
@@ -46,7 +46,7 @@ function ready() {
     while (state.status === 'open');
     return state;
   };
-  return { db, saveId, solveAll, atStronghold, winBoss };
+  return { db, saveId, solveAll, atStronghold, winBoss, playerDir };
 }
 
 test('a fresh save is locked with nothing solved', () => {
@@ -183,4 +183,23 @@ test('a quest solved after the boss win locks the ending until the boss is beate
   const again = winBoss();
   assert.equal(again.endingUnlocked, true);
   assert.equal(endingStatus(db, saveId).unlocked, true);
+});
+
+test('revoking a solve locks the ending and the boss, and the boss must fall again after the re-solve', () => {
+  const { db, saveId, solveAll, winBoss, playerDir } = ready();
+  solveAll();
+  winBoss();
+  assert.equal(endingStatus(db, saveId).unlocked, true);
+
+  revokeSolve(db, saveId, 'array-sum', 'the Master found a hardcoded answer');
+  const locked = endingStatus(db, saveId);
+  assert.deepEqual([locked.questsSolved, locked.unlocked], [2, false]);
+  assert.throws(() => beginFight(db, saveId, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero' }), /array-sum/i);
+
+  pause(5);
+  checkQuest(db, saveId, 'array-sum', { playerDir, timeoutMs: 15000 });
+  judgeQuest(db, saveId, 'array-sum', 'clean', null, { playerDir });
+  assert.equal(endingStatus(db, saveId).unlocked, false);
+  pause(5);
+  assert.equal(winBoss().endingUnlocked, true);
 });

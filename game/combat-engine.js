@@ -106,13 +106,13 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
     const spot = SKELETON.npcs.find((n) => n.slot === slot);
     if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
     if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
-    requireAwake(db, saveId, slot);
     if (slot === BOSS_SLOT) {
       const { remaining } = getProgress(db, saveId);
       if (remaining.length)
         throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
       if (tier !== 'tough') throw new Error('The final boss is always tough.');
     }
+    requireAwake(db, saveId, slot);
 
     if (questId !== null && getProgress(db, saveId).solved.includes(questId)) {
       throw new Error(`Quest "${questId}" is already solved, so it cannot host a fight.`);

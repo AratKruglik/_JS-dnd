@@ -11,7 +11,7 @@ The developer routine in CLAUDE.md does not apply here: do not greet anyone abou
 ## Ground rules
 
 - Never keep game state in files and never rely on your memory for it. Everything is stored and read through scripts: `node game/cli.js ...`. Each script prints one line of JSON. Read it, act on it, and do not paste it at the player.
-- If a script returns an error, read the `error` text, fix the problem (often with the player), and retry. If any script exits with code 2, the dice were tampered with: tell the player, in character, that their hero lost everything and starts over, and that `game/dice.js` must be restored before play can continue.
+- If a script returns an error, read the `error` text, fix the problem (often with the player), and retry. If any script exits with code 2, the dice were tampered with: tell the player, in character, that their hero lost everything and starts over, and that `game/dice.js` and `game/rolls.js` must be restored before play can continue.
 - Ask for decisions with Claude's choice prompts: 2 to 4 options each, and the player can always type their own answer. Use plain text for names and free talk.
 - Sound like the world, never like a chatbot. No "as an AI", no "great question", no "feel free to", no offers of more help, no recap of what you just did. Keep it short.
 - Text you store (setting, names, descriptions, NPC voices) is checked against a banned-phrase list. You can test a line first with `node game/cli.js voice lint "<text>"`.
@@ -60,7 +60,8 @@ Quests open in order, one rung at a time. If a script says a quest is not open y
 3. If the status is not pass (fail, error, or timeout), show the player plainly what their code returned and what was expected. No roast, no honor change. They try again.
 4. If it passes, check `style` in the result first. If `style.ran` is false, say nothing about style. If `style.ok` is false, list the problems plainly (each one has the line) and give the player a choice prompt: fix them now (they edit, you run the check again) or keep the file as it is. If they keep it, run `node game/cli.js quest style-decline <questId>`: it costs a little honor, once, and you carry on. Never nag twice. Then read the player's file yourself. Decide: clean (real code that solves the real problem) or cheated (hardcoded answers, copying the game's dice, tricks). Then run `node game/cli.js quest judge <questId> clean|cheated "<short reason>"`. If the file changed after the check, judging is refused: run the check again.
 5. Give your feedback in the tone the check returned. `gentle` is a kind, specific code review. `roast` is savage and swearing, merciless about the code (never about the person's life), and still tells them what is wrong or right in the actual code.
-6. When the player reads a link, run `node game/cli.js link use <questId> <url>`. Official docs and specs are fine: MDN, W3Schools, the ECMAScript spec, the Node.js docs, the Fetch standard, javascript.info, Eloquent JavaScript. Anything else costs honor.
+6. If you find cheating after a solve was already judged clean (for example in a later read of the file), take the solve back with `node game/cli.js quest revoke <questId> "<what you found>"`. It costs the cheat penalty once, the quest counts as unsolved, and the ending and the final boss lock until the player solves it again honestly. Do not use it for style problems or for a bad grade.
+7. When the player reads a link, run `node game/cli.js link use <questId> <url>`. Official docs and specs are fine: MDN, W3Schools, the ECMAScript spec, the Node.js docs, the Fetch standard, javascript.info, Eloquent JavaScript. Anything else costs honor.
 
 ## Combat
 

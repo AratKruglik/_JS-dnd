@@ -101,7 +101,7 @@ test('the hero starts at L1', () => {
   assert.equal(getHero(db, saveId).locationSlot, 'L1');
 });
 
-test('a tamper reset returns abilities to 8 and 0 but keeps the race and the descriptions', () => {
+test('a tamper reset returns base scores to 8 but keeps the race, its bonuses, and the descriptions', () => {
   const { db, saveId } = setup();
   createHeroFromChoices(db, saveId, {
     ...base,
@@ -112,7 +112,7 @@ test('a tamper reset returns abilities to 8 and 0 but keeps the race and the des
   applyTamperReset(db, saveId, { expected: 'aaa', found: 'bbb' });
   const hero = getHero(db, saveId);
   assert.deepEqual(hero.abilities.DEX, { base: 8, traitAdjust: 0 });
-  assert.deepEqual(hero.abilities.INT, { base: 8, traitAdjust: 0 });
+  assert.deepEqual(hero.abilities.INT, { base: 8, traitAdjust: 2 });
   assert.deepEqual([hero.race, hero.raceDescription, hero.level], ['Zorbian', 'Glass skin.', 1]);
 });
 

@@ -19,6 +19,10 @@ export function markSolved(db, saveId, questId, solvedAt = new Date().toISOStrin
   db.prepare(
     'INSERT INTO quest_solves (save_id, quest_id, attempt_id, solved_at, epoch, hints_used, complexity) VALUES (?, ?, ?, ?, ?, 0, 1)',
   ).run(saveId, questId, Number(attempt.lastInsertRowid), solvedAt, epoch);
+  db.prepare("INSERT INTO quest_judgments (attempt_id, created_at, verdict, note) VALUES (?, ?, 'clean', NULL)").run(
+    Number(attempt.lastInsertRowid),
+    solvedAt,
+  );
 }
 
 // Solves every quest that comes before this one in the ladder.

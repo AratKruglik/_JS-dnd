@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sealDice, checkDice } from '../../game/integrity.js';
 import { applyTamperReset } from '../../game/reset.js';
-import { createSave, createHero, getHero, ABILITIES } from '../../game/hero.js';
+import { createSave, createHero, createHeroFromChoices, getHero, ABILITIES } from '../../game/hero.js';
 import { addHonorEvent, getHonor, getHonorHistory } from '../../game/honor.js';
 import { startFight } from '../../game/fights.js';
 import { freshDb, count } from './helpers.js';
@@ -18,8 +18,10 @@ function sealedCopy() {
   const dir = mkdtempSync(join(tmpdir(), 'jsdnd-dice-'));
   const dicePath = join(dir, 'dice.js');
   const sealPath = join(dir, 'dice.sha256');
+  const rollsPath = join(dir, 'rolls.js');
   copyFileSync(join(root, 'game', 'dice.js'), dicePath);
-  return { dicePath, sealPath, expected: sealDice(dicePath, sealPath) };
+  copyFileSync(join(root, 'game', 'rolls.js'), rollsPath);
+  return { dicePath, sealPath, rollsPath, expected: sealDice(dicePath, sealPath, rollsPath) };
 }
 
 function heroSetup() {
@@ -73,7 +75,7 @@ test('checkDice reports seal-missing when there is no seal file', () => {
   assert.equal(result.expected, null);
 });
 
-test('applyTamperReset sets level 1, abilities 8 with no trait adjust, and honor at the floor', () => {
+test('applyTamperReset sets level 1, base scores to 8 keeping race bonuses, and honor at the floor', () => {
   const { db, saveId } = heroSetup();
   const hero = getHero(db, saveId);
   db.prepare('UPDATE heroes SET level = 5 WHERE id = ?').run(hero.id);
@@ -86,7 +88,10 @@ test('applyTamperReset sets level 1, abilities 8 with no trait adjust, and honor
 
   const after = getHero(db, saveId);
   assert.equal(after.level, 1);
-  for (const ability of ABILITIES) assert.deepEqual(after.abilities[ability], { base: 8, traitAdjust: 0 });
+  for (const ability of ABILITIES) {
+    const kept = ability === 'STR' ? 2 : 0;
+    assert.deepEqual(after.abilities[ability], { base: 8, traitAdjust: kept });
+  }
   assert.equal(getHonor(db, saveId), -100);
   const last = getHonorHistory(db, saveId).at(-1);
   assert.deepEqual([last.kind, last.delta, last.honorAfter], ['reset', -140, -100]);
@@ -167,4 +172,96 @@ test('a failure in the middle of a reset rolls the whole reset back', () => {
   assert.equal(getHonor(db, saveId), 10);
   assert.equal(db.prepare('SELECT outcome FROM fights WHERE id = ?').get(fightId).outcome, null);
   assert.equal(getHero(db, saveId).level, 3);
+});
+
+test('a reset keeps race bonuses (dwarf CON +2, custom race) and still resets level, scores, and honor', () => {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  createHeroFromChoices(db, saveId, {
+    name: 'Durin',
+    race: 'dwarf',
+    heroClass: 'fighter',
+    scores: [15, 8, 14, 8, 8, 15],
+  });
+  applyTamperReset(db, saveId, { expected: 'a', found: 'b' });
+  const dwarf = getHero(db, saveId);
+  assert.deepEqual(dwarf.abilities.CON, { base: 8, traitAdjust: 2 });
+  assert.deepEqual([dwarf.level, dwarf.abilities.STR.base, getHonor(db, saveId)], [1, 8, -100]);
+
+  const other = createSave(db, {});
+  createHeroFromChoices(db, other, {
+    name: 'Zed',
+    race: 'Zorbian',
+    heroClass: 'wizard',
+    scores: [8, 8, 8, 15, 8, 8],
+    bonuses: { INT: 2, STR: -1 },
+    raceDescription: 'Glass skin that hums.',
+  });
+  applyTamperReset(db, other, { expected: 'a', found: 'b' });
+  const zed = getHero(db, other);
+  assert.deepEqual(
+    [zed.abilities.INT, zed.abilities.STR],
+    [
+      { base: 8, traitAdjust: 2 },
+      { base: 8, traitAdjust: -1 },
+    ],
+  );
+});
+
+test('the fingerprint covers rolls.js: editing it is tampering, and so is a missing file or a one line seal', () => {
+  const edited = sealedCopy();
+  appendFileSync(edited.rollsPath, '\n// rigged\n');
+  const result = checkDice({ dicePath: edited.dicePath, sealPath: edited.sealPath, rollsPath: edited.rollsPath });
+  assert.deepEqual([result.ok, result.reason], [false, 'modified']);
+  assert.notEqual(result.found, edited.expected);
+
+  const gone = sealedCopy();
+  rmSync(gone.rollsPath);
+  const missing = checkDice({ dicePath: gone.dicePath, sealPath: gone.sealPath, rollsPath: gone.rollsPath });
+  assert.deepEqual([missing.ok, missing.reason, missing.found], [false, 'missing', 'missing']);
+
+  const half = sealedCopy();
+  const [diceLine] = readFileSync(half.sealPath, 'utf8').split('\n');
+  writeFileSync(half.sealPath, `${diceLine}\n`);
+  const broken = checkDice({ dicePath: half.dicePath, sealPath: half.sealPath, rollsPath: half.rollsPath });
+  assert.deepEqual([broken.ok, broken.reason], [false, 'seal-missing']);
+});
+
+test('the seal file has one line per sealed file, and each change gives a different fingerprint', () => {
+  const sealed = sealedCopy();
+  const lines = readFileSync(sealed.sealPath, 'utf8').trim().split('\n');
+  assert.match(lines[0], /^dice [0-9a-f]{64}$/);
+  assert.match(lines[1], /^rolls [0-9a-f]{64}$/);
+
+  appendFileSync(sealed.dicePath, '\n// one\n');
+  const diceEdit = checkDice({ dicePath: sealed.dicePath, sealPath: sealed.sealPath, rollsPath: sealed.rollsPath });
+  const fresh = sealedCopy();
+  appendFileSync(fresh.rollsPath, '\n// two\n');
+  const rollsEdit = checkDice({ dicePath: fresh.dicePath, sealPath: fresh.sealPath, rollsPath: fresh.rollsPath });
+  assert.notEqual(diceEdit.found, rollsEdit.found);
+
+  const { db, saveId } = heroSetup();
+  assert.equal(applyTamperReset(db, saveId, { expected: diceEdit.expected, found: diceEdit.found }).applied, true);
+  assert.equal(applyTamperReset(db, saveId, { expected: diceEdit.expected, found: diceEdit.found }).applied, false);
+  assert.equal(applyTamperReset(db, saveId, { expected: rollsEdit.expected, found: rollsEdit.found }).applied, true);
+});
+
+test('node game/seal.js seals both files into the seal file', () => {
+  const { dicePath, sealPath, rollsPath } = sealedCopy();
+  rmSync(sealPath);
+  const run = spawnSync('node', [join(root, 'game', 'seal.js')], {
+    encoding: 'utf8',
+    env: { ...process.env, JSDND_DICE_PATH: dicePath, JSDND_DICE_SEAL: sealPath, JSDND_ROLLS_PATH: rollsPath },
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const lines = readFileSync(sealPath, 'utf8').trim().split('\n');
+  assert.deepEqual(
+    lines.map((l) => l.split(' ')[0]),
+    ['dice', 'rolls'],
+  );
+  assert.equal(checkDice({ dicePath, sealPath, rollsPath }).ok, true);
+});
+
+test('the real seal matches the real dice.js and rolls.js', () => {
+  assert.equal(checkDice().ok, true);
 });
