@@ -9,10 +9,28 @@ import { applyHonorRule } from './honor-rules.js';
 import { classifyLink } from './links.js';
 import { startQuest, checkQuest, judgeQuest, logHint, getProgress } from './quests.js';
 import { QUESTS } from '../quests/index.js';
+import { createHeroFromChoices } from './hero.js';
+import {
+  ABILITIES,
+  ALIASES,
+  POINT_BUY_BUDGET,
+  POINT_BUY_COSTS,
+  STANDARD_CLASSES,
+  STANDARD_RACES,
+} from './rules.js';
+import { setSetting, fillWorld, worldStatus, look, go, talk } from './world.js';
+import { lintVoice } from './voice.js';
+import { SKELETON } from '../world/skeleton.js';
 
 const USAGE = `Commands:
   init
-  hero new <name> <race> <class> | hero show
+  rules races | rules classes | rules pointbuy
+  hero create --name <n> --race <r> --class <c> --scores <6 numbers like 15,14,13,12,10,8>
+              [--bonuses STR=2,DEX=1] [--race-desc "<t>"] [--class-desc "<t>"]
+  hero show | hero new <name> <race> <class>   (new = default scores, for testing)
+  world setting --source <offered|customized|written> --name <n> --desc <d> --voice <v>
+  world skeleton | world fill --data '<json>' | world status
+  look | go <exit> | talk <npcSlot> | voice lint "<text>"
   roll <spec> [--context "<text>"]
   honor add <delta> <kind> "<reason>" | honor event <kind> ["<note>"] | honor show
   fight start "<reason>" | fight log <fightId> <actor> <action> ["<detail>"] [--roll <rollId>]
@@ -32,7 +50,19 @@ function fail(message, code = 1) {
 }
 
 // Our own tiny parser: values like -5 or "- crit" are plain values, not options.
-const VALUE_OPTIONS = new Set(['--context', '--roll']);
+const VALUE_OPTIONS = new Set([
+  '--context', '--roll', '--name', '--race', '--class', '--scores', '--bonuses',
+  '--race-desc', '--class-desc', '--source', '--desc', '--voice', '--data',
+]);
+
+// Which options each command accepts. Anything else is rejected, never silently ignored.
+const ALLOWED_FLAGS = {
+  roll: ['context'],
+  'fight log': ['roll'],
+  'hero create': ['name', 'race', 'class', 'scores', 'bonuses', 'race-desc', 'class-desc'],
+  'world setting': ['source', 'name', 'desc', 'voice'],
+  'world fill': ['data'],
+};
 
 function parseCli(argv) {
   const flags = {};
@@ -65,10 +95,34 @@ function arity(args, min, max, usage) {
   }
 }
 
+// "15,14,13,12,10,8" -> [15, 14, 13, 12, 10, 8]
+function parseScores(text) {
+  if (text === undefined) throw new Error('Missing --scores. Give six numbers in order STR,DEX,CON,INT,WIS,CHA.');
+  return String(text).split(',').map((part) => toInt(part.trim(), 'score'));
+}
+
+// "STR=2,DEX=-1" -> { STR: 2, DEX: -1 }
+function parseBonuses(text) {
+  if (text === undefined) return undefined;
+  const bonuses = {};
+  for (const part of String(text).split(',')) {
+    const pieces = part.split('=');
+    if (pieces.length !== 2) throw new Error(`Bonuses look like STR=2,DEX=-1, got "${part}".`);
+    bonuses[pieces[0].trim().toUpperCase()] = toInt(pieces[1].trim(), `${pieces[0].trim()} bonus`);
+  }
+  return bonuses;
+}
+
 function main() {
   const { flags, positionals } = parseCli(process.argv.slice(2));
   const [command, sub, ...rest] = positionals;
   if (!command) fail(USAGE);
+
+  const flagKey = `${command} ${sub}`;
+  const allowed = ALLOWED_FLAGS[flagKey] ?? ALLOWED_FLAGS[command] ?? [];
+  for (const flag of Object.keys(flags)) {
+    if (!allowed.includes(flag)) throw new Error(`Option --${flag} does not belong to "${command}${sub ? ` ${sub}` : ''}".`);
+  }
 
   // The dice check runs before every command.
   const check = checkDice();
@@ -121,8 +175,21 @@ function main() {
         out({ ok: true, heroId });
       } else if (sub === 'show') {
         const hero = getHero(db, currentSaveId());
-        if (!hero) fail('No hero yet. Run: node game/cli.js hero new <name> <race> <class>');
+        if (!hero) fail('No hero yet. Run: node game/cli.js hero create --name <n> --race <r> --class <c> --scores <six numbers>');
         out({ ok: true, hero });
+      } else if (sub === 'create') {
+        arity(rest, 0, 0, 'hero create --name <n> --race <r> --class <c> --scores <six numbers>');
+        const saveId = currentSaveId();
+        const heroId = createHeroFromChoices(db, saveId, {
+          name: flags.name,
+          race: flags.race,
+          heroClass: flags.class,
+          scores: parseScores(flags.scores),
+          bonuses: parseBonuses(flags.bonuses),
+          raceDescription: flags['race-desc'],
+          classDescription: flags['class-desc'],
+        });
+        out({ ok: true, heroId, hero: getHero(db, saveId) });
       } else fail(USAGE);
       break;
     }
@@ -212,6 +279,69 @@ function main() {
       } else if (sub === 'show') {
         out({ ok: true, log: getFightLog(db, toInt(need(rest[0], 'fightId'), 'fightId')) });
       } else fail(USAGE);
+      break;
+    }
+    case 'rules': {
+      arity(rest, 0, 0, 'rules races | rules classes | rules pointbuy');
+      if (sub === 'races') {
+        out({
+          ok: true,
+          races: Object.entries(STANDARD_RACES).map(([name, bonuses]) => ({ name, bonuses })),
+          aliases: ALIASES,
+        });
+      } else if (sub === 'classes') {
+        out({ ok: true, classes: STANDARD_CLASSES, aliases: ALIASES });
+      } else if (sub === 'pointbuy') {
+        out({ ok: true, budget: POINT_BUY_BUDGET, min: 8, max: 15, costs: POINT_BUY_COSTS, abilities: ABILITIES });
+      } else fail(USAGE);
+      break;
+    }
+    case 'world': {
+      arity(rest, 0, 0, 'world setting | world skeleton | world fill | world status');
+      if (sub === 'setting') {
+        setSetting(db, currentSaveId(), {
+          source: flags.source,
+          name: flags.name,
+          description: flags.desc,
+          voice: flags.voice,
+        });
+        out({ ok: true });
+      } else if (sub === 'skeleton') {
+        out({ ok: true, ...SKELETON });
+      } else if (sub === 'fill') {
+        let data;
+        try {
+          data = JSON.parse(need(flags.data, '--data'));
+        } catch (error) {
+          if (error instanceof SyntaxError) throw new Error('--data must be valid JSON.');
+          throw error;
+        }
+        out({ ok: true, ...fillWorld(db, currentSaveId(), data) });
+      } else if (sub === 'status') {
+        out({ ok: true, ...worldStatus(db, currentSaveId()) });
+      } else fail(USAGE);
+      break;
+    }
+    case 'look': {
+      arity(positionals.slice(1), 0, 0, 'look');
+      out({ ok: true, ...look(db, currentSaveId()) });
+      break;
+    }
+    case 'go': {
+      arity(positionals.slice(1), 1, 1, 'go <exit>');
+      out({ ok: true, ...go(db, currentSaveId(), sub) });
+      break;
+    }
+    case 'talk': {
+      arity(positionals.slice(1), 1, 1, 'talk <npcSlot>');
+      out({ ok: true, ...talk(db, currentSaveId(), sub) });
+      break;
+    }
+    case 'voice': {
+      if (sub !== 'lint') fail(USAGE);
+      arity(rest, 1, 1, 'voice lint "<text>"');
+      const { ok: clean, hits } = lintVoice(rest[0]);
+      out({ ok: true, lint: clean, hits });
       break;
     }
     case 'integrity': {

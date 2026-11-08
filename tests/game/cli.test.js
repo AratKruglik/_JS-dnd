@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { sealDice } from '../../game/integrity.js';
 import { count } from './helpers.js';
+import { SETTING, goodWorld } from './world-fixtures.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const cli = join(root, 'game', 'cli.js');
@@ -310,4 +311,135 @@ test('tampering with the dice blocks quest commands with exit 2', () => {
   appendFileSync(env.JSDND_DICE_PATH, '\n// cheat\n');
   assert.equal(run('quest', 'list').status, 2);
   assert.equal(run('quest', 'check', 'dice-roll').status, 2);
+});
+
+const HERO_ARGS = ['hero', 'create', '--name', 'Bilbo', '--race', 'hobbit', '--class', 'rogue', '--scores', '8,15,14,8,8,15'];
+const SETTING_ARGS = ['world', 'setting', '--source', SETTING.source, '--name', SETTING.name, '--desc', SETTING.description, '--voice', SETTING.voice];
+
+function readyGame() {
+  const game = install();
+  game.run('init');
+  assert.equal(game.run(...HERO_ARGS).status, 0);
+  assert.equal(game.run(...SETTING_ARGS).status, 0);
+  const fill = game.run('world', 'fill', '--data', JSON.stringify(goodWorld()));
+  assert.equal(fill.status, 0, fill.stderr);
+  return game;
+}
+
+test('rules lists the standard races with bonuses, the classes, and the point buy table', () => {
+  const { run } = install();
+  run('init');
+  const races = run('rules', 'races').json;
+  assert.equal(races.races.length, 9);
+  assert.deepEqual(races.races.find((r) => r.name === 'dwarf').bonuses, { CON: 2 });
+  assert.equal(races.aliases.hobbit, 'halfling');
+  assert.equal(run('rules', 'classes').json.classes.length, 12);
+  const pointbuy = run('rules', 'pointbuy').json;
+  assert.deepEqual([pointbuy.budget, pointbuy.min, pointbuy.max, pointbuy.costs['15']], [27, 8, 15, 9]);
+});
+
+test('hero create stores a valid hero and rejects an invalid spread with exit 1 and nothing written', () => {
+  const { run } = install();
+  run('init');
+  const bad = run('hero', 'create', '--name', 'Bilbo', '--race', 'elf', '--class', 'rogue', '--scores', '15,15,15,15,8,8');
+  assert.equal(bad.status, 1);
+  assert.match(JSON.parse(bad.stderr.trim()).error, /points/i);
+  assert.equal(run('hero', 'show').status, 1);
+  const good = run(...HERO_ARGS);
+  assert.equal(good.status, 0, good.stderr);
+  assert.equal(good.json.hero.race, 'halfling');
+  assert.deepEqual(good.json.hero.abilities.DEX, { base: 15, traitAdjust: 2 });
+});
+
+test('a custom race round trip with approved bonuses and a description', () => {
+  const { run } = install();
+  run('init');
+  const result = run(
+    'hero', 'create', '--name', 'Zed', '--race', 'Zorbian', '--class', 'wizard', '--scores', '8,8,8,15,8,8',
+    '--bonuses', 'INT=2,STR=-1', '--race-desc', '- Glass skin that hums.',
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.json.hero.abilities.INT, { base: 15, traitAdjust: 2 });
+  assert.deepEqual(result.json.hero.abilities.STR, { base: 8, traitAdjust: -1 });
+  assert.equal(result.json.hero.raceDescription, '- Glass skin that hums.');
+});
+
+test('world setting, skeleton, fill, and status round trip until complete', () => {
+  const { run } = install();
+  run('init');
+  assert.deepEqual(run('world', 'status').json.missing, ['setting', 'locations', 'npcs']);
+  const skeleton = run('world', 'skeleton').json;
+  assert.equal(skeleton.locations.length, 6);
+  assert.equal(skeleton.npcs.length, 6);
+  assert.equal(skeleton.start, 'L1');
+  assert.equal(run(...SETTING_ARGS).status, 0);
+  const fill = run('world', 'fill', '--data', JSON.stringify(goodWorld()));
+  assert.deepEqual([fill.json.locations, fill.json.npcs], [6, 6]);
+  assert.equal(run('world', 'status').json.complete, true);
+});
+
+test('world fill rejects a banned phrase and names it, and bad JSON', () => {
+  const { run } = install();
+  run('init');
+  const world = goodWorld();
+  world.npcs.N3.description = 'Feel free to ask me anything.';
+  const banned = run('world', 'fill', '--data', JSON.stringify(world));
+  assert.equal(banned.status, 1);
+  assert.match(JSON.parse(banned.stderr.trim()).error, /feel free to/i);
+  const broken = run('world', 'fill', '--data', '{not json');
+  assert.equal(broken.status, 1);
+  assert.match(JSON.parse(broken.stderr.trim()).error, /json/i);
+  assert.equal(run('world', 'status').json.npcsFilled, 0);
+});
+
+test('look, go, and talk work end to end after fill, and going to a non-exit exits 1', () => {
+  const { run } = readyGame();
+  assert.equal(run('look').json.location.slot, 'L1');
+  assert.equal(run('go', 'L2').json.location.slot, 'L2');
+  assert.equal(run('look').json.location.name, 'Place 2');
+  const bad = run('go', 'L6');
+  assert.equal(bad.status, 1);
+  assert.match(JSON.parse(bad.stderr.trim()).error, /not an exit/i);
+  run('go', 'place 1');
+  assert.equal(run('talk', 'N1').json.offer.questId, 'dice-roll');
+});
+
+test('voice lint returns hits for AI-speak and ok for clean prose', () => {
+  const { run } = install();
+  run('init');
+  assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json, { ok: true, lint: false, hits: ['great question'] });
+  assert.deepEqual(run('voice', 'lint', 'The bridge is out.').json, { ok: true, lint: true, hits: [] });
+});
+
+test('each command accepts only its own options and no extra arguments', () => {
+  const { run } = readyGame();
+  const rejected = [
+    ['look', 'extra'],
+    ['world', 'status', '--data', 'x'],
+    ['rules', 'races', 'x'],
+    ['voice', 'lint', 'a', 'b'],
+    ['quest', 'list', '--context', 'hi'],
+    ['roll', 'd20', '--roll', '3'],
+    ['go', 'L2', 'L3'],
+  ];
+  for (const args of rejected) {
+    const result = run(...args);
+    assert.equal(result.status, 1, `${args.join(' ')} should be rejected`);
+    assert.ok(JSON.parse(result.stderr.trim()).error.length > 0);
+  }
+});
+
+test('dash-led and negative values inside options are accepted as values', () => {
+  const { run } = install();
+  run('init');
+  const result = run('world', 'setting', '--source', 'written', '--name', '- Odd Name', '--desc', '-5 degrees and falling', '--voice', '- terse');
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('tampering with the dice blocks the new commands with exit 2', () => {
+  const { env, run } = readyGame();
+  appendFileSync(env.JSDND_DICE_PATH, '\n// cheat\n');
+  assert.equal(run('look').status, 2);
+  assert.equal(run('go', 'L2').status, 2);
+  assert.equal(run('world', 'status').status, 2);
 });
