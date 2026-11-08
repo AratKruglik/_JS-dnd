@@ -33,7 +33,7 @@ Approved by the owner for this plan:
 
 Calls made while planning (the owner can reject any):
 - Standard races and classes are the 5e SRD names (from memory, Unchecked). Aliases: `hobbit` means `halfling`, `magician` means `wizard`. Half-elf gets CHA +2, DEX +1, CON +1 (5e lets the player choose; a fixed pick keeps it simple).
-- A custom race bonus set: each value from -2 to +2 and the positives add up to at most 3. The script cannot know the player approved; asking is the Master's job. A custom class has no mechanical effect yet and is stored as a description.
+- A custom race bonus set: each value from -2 to +2 and the positives add up to at most 4. The script cannot know the player approved; asking is the Master's job. A custom class has no mechanical effect yet and is stored as a description.
 - Ability storage reuses Plan 2: `base` is the point-buy score (8 to 15) and `trait_adjust` is the race bonus. A tamper reset already returns both to 8 and 0.
 - `world fill` takes the whole world in one call as a JSON argument (an argument, not a file) so it is one tool call and one transaction. It is refused once any quest attempt exists, so names cannot change mid-game.
 - Quests unlock in registry order: an NPC offers their quest only when every earlier quest is solved in the current epoch.
@@ -102,8 +102,8 @@ NPCs (slot, location, role): `N1` L1 mentor, quest 1; `N2` L2 trader, quest 2; `
   - `over budget, out of range, wrong count, and non-integers are rejected with readable errors`: `[15, 15, 15, 15, 8, 8]`, `[16, 8, 8, 8, 8, 8]`, `[7, 8, 8, 8, 8, 8]`, five scores, seven scores, `[8.5, 8, 8, 8, 8, 8]`, and a string.
   - `under budget is valid` and reports `spent`.
   - `resolveName maps aliases and flags custom names`: `hobbit` gives `halfling`, `Magician` gives `wizard`, `Zorbian` is custom.
-  - `every standard race bonus table sums to 3 or less in positives` (pins the cap used for custom races).
-  - `custom bonuses: each within -2 to +2 and positives total at most 3`: accepts `{ STR: 2, DEX: 1, CON: -1 }`, rejects `{ STR: 3 }`, `{ STR: 2, DEX: 2 }`, an unknown ability, and a non-integer.
+  - `every standard race except human sums to 4 or less in positives` (pins the cap used for custom races).
+  - `custom bonuses: each within -2 to +2 and positives total at most 4`: accepts `{ STR: 2, DEX: 1, CON: -1 }` and `{ CHA: 2, DEX: 1, CON: 1 }`, rejects `{ STR: 3 }`, `{ STR: 2, DEX: 2, CON: 1 }`, an unknown ability, and a non-integer.
   - `lintVoice catches banned phrases in any case and spacing` and `lintVoice leaves ordinary fantasy prose alone` (a paragraph with tapestry, delve as a verb on its own, and certainly in dialogue).
 - [ ] **Step 3: Run** `node --test tests/game/rules.test.js tests/game/voice.test.js`. Expected: FAIL.
 - [ ] **Step 4: Implement** both modules.
