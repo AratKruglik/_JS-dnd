@@ -509,3 +509,98 @@ test('a stray hero new plus quest check before /play no longer blocks onboarding
   assert.equal(fill.status, 0, fill.stderr);
   assert.equal(run('world', 'status').json.complete, true);
 });
+
+const MOVE_PROBLEM = {
+  title: 'Add two numbers',
+  brief: 'Write solve(a, b) that returns the sum.',
+  difficulty: 1,
+  tests: [
+    { args: [1, 2], expected: 3 },
+    { args: [2, 2], expected: 4 },
+    { args: [10, -3], expected: 7 },
+  ],
+  reference: 'export function solve(a, b) { return a + b; }',
+};
+
+test('npc warn counts warnings and a full fight can be played to the end through the CLI', () => {
+  const { run } = readyGame();
+  assert.deepEqual(run('npc', 'warn', 'N1', 'behind the counter').json, { ok: true, warnings: 1, mayFight: false });
+  const early = run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'npc');
+  assert.equal(early.status, 1);
+  assert.match(JSON.parse(early.stderr.trim()).error, /warning/i);
+  run('npc', 'warn', 'N1', 'again');
+  assert.equal(run('npc', 'warn', 'N1', 'still').json.mayFight, true);
+
+  const begun = run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'npc');
+  assert.equal(begun.status, 0, begun.stderr);
+  assert.equal(begun.json.fight.enemy.hpMax, 6);
+  let state = begun.json.fight;
+  for (let i = 0; i < 40 && state.status === 'open'; i++) {
+    const turn = run('fight', 'attack');
+    assert.equal(turn.status, 0, turn.stderr);
+    state = turn.json.fight;
+  }
+  assert.ok(['won', 'lost'].includes(state.status), `fight ended as ${state.status}`);
+  assert.equal(run('fight', 'state').json.fight, null);
+  assert.equal(run('fight', 'attack').status, 1);
+});
+
+test('fight flee ends the fight, and bad tiers or aggressors exit 1', () => {
+  const { run } = readyGame();
+  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'giant', '--aggressor', 'hero').status, 1);
+  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'bystander').status, 1);
+  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero').status, 0);
+  assert.equal(run('fight', 'flee').json.fight.status, 'fled');
+});
+
+test('an advanced move: propose from stdin, then a correct solution wins and a wrong one loses the turn', () => {
+  const { run, runInput } = readyGame();
+  run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
+  const proposal = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
+  assert.equal(proposal.status, 0, proposal.stderr);
+  assert.equal(proposal.json.tests, undefined);
+  writeFileSync(proposal.json.file, 'export function solve(a, b) { return a + b; }');
+  const won = run('move', 'check', String(proposal.json.moveId));
+  assert.equal(won.status, 0, won.stderr);
+  assert.deepEqual([won.json.moveStatus, won.json.fight.status], ['won', 'won']);
+
+  run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  const second = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
+  writeFileSync(second.json.file, 'export function solve(a, b) { return a - b; }');
+  const lost = run('move', 'check', String(second.json.moveId));
+  assert.deepEqual([lost.json.moveStatus, lost.json.fight.enemy.hp], ['failed', 26]);
+});
+
+test('a bad move problem is rejected with a readable error and nothing stored', () => {
+  const { run, runInput, db } = readyGame();
+  run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
+  const bad = runInput(JSON.stringify({ ...MOVE_PROBLEM, reference: 'export function solve(a, b) { return 0; }' }), 'move', 'propose', '--data', '-');
+  assert.equal(bad.status, 1);
+  assert.match(JSON.parse(bad.stderr.trim()).error, /reference/i);
+  assert.equal(count(db(), 'fight_moves'), 0);
+});
+
+test('the new combat commands reject extra arguments and foreign options', () => {
+  const { run } = readyGame();
+  const rejected = [
+    ['fight', 'attack', 'extra'],
+    ['fight', 'state', 'x'],
+    ['npc', 'warn', 'N1', 'a', 'b'],
+    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero', '--data', 'x'],
+    ['move', 'check', '1', '2'],
+    ['move', 'propose', '--name', 'x'],
+  ];
+  for (const args of rejected) {
+    const result = run(...args);
+    assert.equal(result.status, 1, `${args.join(' ')} should be rejected`);
+    assert.ok(JSON.parse(result.stderr.trim()).error.length > 0);
+  }
+});
+
+test('tampering with the dice blocks the combat commands with exit 2', () => {
+  const { env, run } = readyGame();
+  appendFileSync(env.JSDND_DICE_PATH, '\n// cheat\n');
+  for (const args of [['fight', 'attack'], ['npc', 'warn', 'N1'], ['move', 'check', '1']]) {
+    assert.equal(run(...args).status, 2, args.join(' '));
+  }
+});

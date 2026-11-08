@@ -44,7 +44,7 @@ test('play.md keeps all state in scripts and says so', () => {
 test('every "node game/cli.js <command>" in play.md exists in the CLI usage', () => {
   const probe = spawnSync('node', [join(root, 'game', 'cli.js')], { encoding: 'utf8' });
   const usage = JSON.parse(probe.stderr.trim()).error;
-  const needsSub = new Set(['hero', 'rules', 'world', 'quest', 'link', 'honor', 'fight', 'integrity', 'voice']);
+  const needsSub = new Set(['hero', 'rules', 'world', 'quest', 'link', 'honor', 'fight', 'integrity', 'voice', 'npc', 'move']);
   const seen = new Set();
   for (const match of play.matchAll(/node game\/cli\.js ([a-z]+)(?: ([a-z]+))?/g)) {
     const [, command, sub] = match;
@@ -91,4 +91,23 @@ test('the README try section does not tell a reader to touch the real save', () 
   assert.doesNotMatch(readme, /hero new/);
   assert.match(readme, /throwaway/i);
   assert.match(readme, /JSDND_GAME_DB/);
+});
+
+test('play.md teaches warnings, tiers, the fight loop, and advanced moves', () => {
+  assert.match(play, /## Combat/);
+  for (const command of [
+    'node game/cli.js npc warn',
+    'node game/cli.js fight begin',
+    'node game/cli.js fight attack',
+    'node game/cli.js fight flee',
+    'node game/cli.js fight state',
+    'node game/cli.js move propose --data - <<\'EOF\'',
+    'node game/cli.js move check',
+  ]) {
+    assert.ok(play.includes(command), `play.md never mentions "${command}"`);
+  }
+  assert.match(play, /weak\|normal\|tough/);
+  assert.match(play, /3 to 12 tests/);
+  assert.match(play, /never the tests/i);
+  assert.doesNotMatch(play, /not built yet/i);
 });

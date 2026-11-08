@@ -21,6 +21,8 @@ import {
 import { readFileSync } from 'node:fs';
 import { setSetting, fillWorld, worldStatus, getSetting, look, go, talk } from './world.js';
 import { lintVoice } from './voice.js';
+import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './combat-engine.js';
+import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 
 const USAGE = `Commands:
@@ -37,6 +39,10 @@ const USAGE = `Commands:
   honor add <delta> <kind> "<reason>" | honor event <kind> ["<note>"] | honor show
   fight start "<reason>" | fight log <fightId> <actor> <action> ["<detail>"] [--roll <rollId>]
   fight end <fightId> <won|lost|fled|abandoned> | fight show <fightId>
+  npc warn <slot> ["<reason>"]
+  fight begin --npc <slot> --tier <weak|normal|tough> --aggressor <hero|npc> [--quest <id>]
+  fight attack | fight flee | fight state
+  move propose --data -   (problem JSON on stdin) | move check <moveId>
   quest list | quest start <id> | quest check <id> | quest progress
   quest judge <id> <clean|cheated> ["<note>"]
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
@@ -55,6 +61,7 @@ function fail(message, code = 1) {
 const VALUE_OPTIONS = new Set([
   '--context', '--roll', '--name', '--race', '--class', '--scores', '--bonuses',
   '--race-desc', '--class-desc', '--source', '--desc', '--voice', '--data',
+  '--npc', '--tier', '--aggressor', '--quest',
 ]);
 
 // Which options each command accepts. Anything else is rejected, never silently ignored.
@@ -64,6 +71,8 @@ const ALLOWED_FLAGS = {
   'hero create': ['name', 'race', 'class', 'scores', 'bonuses', 'race-desc', 'class-desc'],
   'world setting': ['source', 'name', 'desc', 'voice'],
   'world fill': ['data'],
+  'fight begin': ['npc', 'tier', 'aggressor', 'quest'],
+  'move propose': ['data'],
 };
 
 function parseCli(argv) {
@@ -94,6 +103,17 @@ function toInt(value, name) {
 function arity(args, min, max, usage) {
   if (args.length < min || args.length > max) {
     throw new Error(`Wrong number of arguments. Expected: ${usage}`);
+  }
+}
+
+// --data '<json>' or --data - (read the JSON from stdin, safe for apostrophes).
+function readJsonFlag(value) {
+  if (value === undefined || value === '') throw new Error('Missing --data.');
+  try {
+    return JSON.parse(value === '-' ? readFileSync(0, 'utf8') : value);
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error('--data must be valid JSON.');
+    throw error;
   }
 }
 
@@ -280,6 +300,43 @@ function main() {
         out({ ok: true });
       } else if (sub === 'show') {
         out({ ok: true, log: getFightLog(db, toInt(need(rest[0], 'fightId'), 'fightId')) });
+      } else if (sub === 'begin') {
+        arity(rest, 0, 0, 'fight begin --npc <slot> --tier <weak|normal|tough> --aggressor <hero|npc> [--quest <id>]');
+        out({
+          ok: true,
+          fight: beginFight(db, currentSaveId(), {
+            npcSlot: need(flags.npc, '--npc'),
+            tier: need(flags.tier, '--tier'),
+            aggressor: need(flags.aggressor, '--aggressor'),
+            questId: flags.quest ?? null,
+          }),
+        });
+      } else if (sub === 'attack') {
+        arity(rest, 0, 0, 'fight attack');
+        out({ ok: true, fight: heroAttack(db, currentSaveId()) });
+      } else if (sub === 'flee') {
+        arity(rest, 0, 0, 'fight flee');
+        out({ ok: true, fight: fleeFight(db, currentSaveId()) });
+      } else if (sub === 'state') {
+        arity(rest, 0, 0, 'fight state');
+        out({ ok: true, fight: getFightState(db, currentSaveId()) });
+      } else fail(USAGE);
+      break;
+    }
+    case 'npc': {
+      if (sub !== 'warn') fail(USAGE);
+      arity(rest, 1, 2, 'npc warn <slot> ["<reason>"]');
+      out({ ok: true, ...warnNpc(db, currentSaveId(), rest[0], rest[1]) });
+      break;
+    }
+    case 'move': {
+      if (sub === 'propose') {
+        arity(rest, 0, 0, "move propose --data - (JSON on stdin)");
+        out({ ok: true, ...proposeMove(db, currentSaveId(), readJsonFlag(flags.data)) });
+      } else if (sub === 'check') {
+        arity(rest, 1, 1, 'move check <moveId>');
+        const timeoutMs = process.env.JSDND_QUEST_TIMEOUT_MS ? Number(process.env.JSDND_QUEST_TIMEOUT_MS) : undefined;
+        out({ ok: true, ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs }) });
       } else fail(USAGE);
       break;
     }
@@ -311,15 +368,7 @@ function main() {
       } else if (sub === 'skeleton') {
         out({ ok: true, ...SKELETON });
       } else if (sub === 'fill') {
-        let data;
-        try {
-          const raw = flags.data === '-' ? readFileSync(0, 'utf8') : need(flags.data, '--data');
-          data = JSON.parse(raw);
-        } catch (error) {
-          if (error instanceof SyntaxError) throw new Error('--data must be valid JSON.');
-          throw error;
-        }
-        out({ ok: true, ...fillWorld(db, currentSaveId(), data) });
+        out({ ok: true, ...fillWorld(db, currentSaveId(), readJsonFlag(flags.data)) });
       } else if (sub === 'status') {
         out({ ok: true, ...worldStatus(db, currentSaveId()) });
       } else if (sub === 'show') {

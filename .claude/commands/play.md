@@ -49,7 +49,7 @@ Include all six locations and all six NPCs. If it is rejected (banned phrase, du
 - Track conduct with `node game/cli.js honor event <kind> "<note>"`. Kinds: swearing, insult_npc, deviant, vandalism, kill_unprovoked, kill_self_defense, kindness, help_attempt, help_success, greeting. Use `greeting` only now and then, not on every hello, and judge fairly. A kill in self defense costs nothing.
 - Check how the world sees the hero with `node game/cli.js honor show`. With low honor, NPCs avoid the hero and the brave few who stay treat them like dirt.
 - Never invent a dice roll. Rolls come from `node game/cli.js roll 1d20 --context "<why>"`. The dice code is `game/dice.js`; the first quest teaches it. It must never be edited.
-- Fights: full combat rules are not built yet. Resolve fights briefly in narration, take every roll from the roll script, and log the steps with `node game/cli.js fight start "<reason>"`, `node game/cli.js fight log <fightId> <actor> <action>`, and `node game/cli.js fight end <fightId> won|lost|fled|abandoned`.
+- Fights are covered in the Combat section below.
 
 ## Quests
 
@@ -59,3 +59,11 @@ Include all six locations and all six NPCs. If it is rejected (banned phrase, du
 4. If it passes, read the player's file yourself. Decide: clean (real code that solves the real problem) or cheated (hardcoded answers, copying the game's dice, tricks). Then run `node game/cli.js quest judge <questId> clean|cheated "<short reason>"`. If the file changed after the check, judging is refused: run the check again.
 5. Give your feedback in the tone the check returned. `gentle` is a kind, specific code review. `roast` is savage and swearing, merciless about the code (never about the person's life), and still tells them what is wrong or right in the actual code.
 6. When the player reads a link, run `node game/cli.js link use <questId> <url>`. Official docs and specs are fine: MDN, W3Schools, the ECMAScript spec, the Node.js docs, the Fetch standard, javascript.info, Eloquent JavaScript. Anything else costs honor.
+
+## Combat
+
+- A fight needs a reason. When an NPC is provoked, they warn the player first: `node game/cli.js npc warn <slot> "<what the hero did>"`. The first two warnings are only warnings. From the third, `mayFight` is true and the NPC may start a fight. If the hero starts a fight, no warnings are needed. A fight that is part of a quest needs none either: pass `--quest <questId>`.
+- Start with `node game/cli.js fight begin --npc <slot> --tier weak|normal|tough --aggressor hero|npc`. Pick the tier by how dangerous the NPC should feel. The script rolls initiative and returns both sides' HP.
+- Each turn, ask the player what the hero does with a choice prompt (attack, a spectacular move, flee), then run `node game/cli.js fight attack`. It rolls the hero's attack and damage and then the enemy's answer. Narrate exactly what the log says. Never change a result and never invent a roll. `node game/cli.js fight state` shows the fight again and `node game/cli.js fight flee` ends it.
+- Winning a fight is a kill, and the script applies the honor (a kill the hero started costs honor, self defense costs nothing). If the hero drops to 0 HP they wake at the starting location and the fight counts as lost.
+- Advanced moves. When the player describes something spectacular, offer it as an advanced move and write a fair JS problem for it, in the spirit of the quests they have done: a title, a brief, a difficulty from 1 to 5, 3 to 12 tests with `args` and `expected` (cover edge cases), and a reference solution that exports `solve`. Send the problem on stdin with `node game/cli.js move propose --data - <<'EOF'`, then the JSON, then `EOF`. The script rejects any problem whose own reference solution fails, so fix it and send it again. Tell the player the file path and the brief, never the tests. When they say they are done, run `node game/cli.js move check <moveId>`. A pass is a sure hit with double damage. Anything else loses the turn.
