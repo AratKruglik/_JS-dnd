@@ -220,4 +220,17 @@ CREATE TABLE npc_knockouts (
 );
 `,
   },
+  {
+    // The latest real usage reading from the status line, plus the start of the fallback estimate window.
+    version: 9,
+    sql: `
+CREATE TABLE stamina (
+  save_id INTEGER PRIMARY KEY REFERENCES saves (id),
+  used_percent REAL,
+  resets_at INTEGER,
+  read_at INTEGER,
+  window_started_at INTEGER
+);
+`,
+  },
 ];
