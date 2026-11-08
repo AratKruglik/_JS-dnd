@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { proposeMove, checkMove } from '../../game/moves.js';
@@ -124,4 +124,34 @@ test('checkMove passes tiredness modifiers to the enemy answer', () => {
   writeFileSync(file, 'export function solve(a, b) { return a - b; }');
   const result = checkMove(db, saveId, moveId, { playerDir, rng: script([7, 20], [3, 6]), modifiers: { ac: -3 } });
   assert.equal(result.fight.hero.hp, 9);
+});
+
+test('a proposal whose stub cannot be written leaves no move row behind', () => {
+  const { db, saveId, start } = inFight();
+  start();
+  const base = mkdtempSync(join(tmpdir(), 'jsdnd-moves-ro-'));
+  const readOnly = join(base, 'locked');
+  mkdirSync(readOnly);
+  chmodSync(readOnly, 0o500);
+  try {
+    assert.throws(() => proposeMove(db, saveId, problem(), { playerDir: readOnly }));
+  } finally {
+    chmodSync(readOnly, 0o700);
+  }
+  assert.equal(count(db, 'fight_moves'), 0);
+  const asFile = join(base, 'a-file');
+  writeFileSync(asFile, 'x');
+  assert.throws(() => proposeMove(db, saveId, problem(), { playerDir: asFile }));
+  assert.equal(count(db, 'fight_moves'), 0);
+});
+
+test('a file the player already has for the move is kept as .old.js, not overwritten', () => {
+  const { db, saveId, playerDir, start } = inFight();
+  start();
+  writeFileSync(join(playerDir, 'move-1.js'), '// my own work\n');
+  const move = proposeMove(db, saveId, problem(), { playerDir });
+  assert.equal(move.moveId, 1);
+  assert.equal(readFileSync(join(playerDir, 'move-1.old.js'), 'utf8'), '// my own work\n');
+  assert.match(readFileSync(move.file, 'utf8'), /export function solve/);
+  assert.equal(existsSync(`${move.file}.tmp`), false);
 });

@@ -154,3 +154,17 @@ test('game/seal.js seals the file at JSDND_DICE_PATH', () => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(checkDice({ dicePath, sealPath }), { ok: true });
 });
+
+test('a failure in the middle of a reset rolls the whole reset back', () => {
+  const { db, saveId } = heroSetup();
+  addHonorEvent(db, saveId, { delta: 10, kind: 'x', reason: 'y' });
+  const fightId = startFight(db, saveId, { triggerReason: 'x' });
+  db.exec('UPDATE heroes SET level = 3');
+  db.exec("CREATE TRIGGER boom BEFORE UPDATE ON hero_abilities BEGIN SELECT RAISE(ABORT, 'boom'); END");
+  assert.throws(() => applyTamperReset(db, saveId, { expected: 'a', found: 'b' }), /boom/);
+  db.exec('DROP TRIGGER boom');
+  assert.equal(count(db, 'resets'), 0);
+  assert.equal(getHonor(db, saveId), 10);
+  assert.equal(db.prepare('SELECT outcome FROM fights WHERE id = ?').get(fightId).outcome, null);
+  assert.equal(getHero(db, saveId).level, 3);
+});

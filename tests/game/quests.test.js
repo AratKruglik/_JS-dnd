@@ -212,3 +212,21 @@ test('hints from before a reset do not count in the new epoch', () => {
   assert.equal(getHonor(db, saveId), -92);
   assert.equal(logHint(db, saveId, 'dice-roll', 'legal_doc').hintsUsed, 1);
 });
+
+test('a failure while judging leaves no judgment, solve, or honor behind', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  db.exec("CREATE TRIGGER boom BEFORE INSERT ON honor_events BEGIN SELECT RAISE(ABORT, 'boom'); END");
+  assert.throws(() => judge('dice-roll', 'clean'), /boom/);
+  db.exec('DROP TRIGGER boom');
+  assert.deepEqual([count(db, 'quest_judgments'), count(db, 'quest_solves'), count(db, 'honor_events')], [0, 0, 0]);
+});
+
+test('a failure while logging an illegal link leaves no hint row behind', () => {
+  const { db, saveId } = setup();
+  db.exec("CREATE TRIGGER boom BEFORE INSERT ON honor_events BEGIN SELECT RAISE(ABORT, 'boom'); END");
+  assert.throws(() => logHint(db, saveId, 'dice-roll', 'illegal_doc', 'https://example.com'), /boom/);
+  db.exec('DROP TRIGGER boom');
+  assert.equal(count(db, 'quest_hints'), 0);
+});

@@ -73,3 +73,23 @@ test('seq is unique per fight', () => {
       .run(fightId),
   );
 });
+
+test('seq starts at 1 again for a second fight and each fight stays gapless', () => {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  const first = startFight(db, saveId, { triggerReason: 'one' });
+  const second = startFight(db, saveId, { triggerReason: 'two' });
+  const log = (id, action) => logFightStep(db, id, { actor: 'hero', action });
+  assert.deepEqual(
+    [log(first, 'a'), log(second, 'a'), log(first, 'b'), log(second, 'b'), log(second, 'c')],
+    [1, 1, 2, 2, 3],
+  );
+  assert.deepEqual(
+    getFightLog(db, first).map((s) => s.seq),
+    [1, 2],
+  );
+  assert.deepEqual(
+    getFightLog(db, second).map((s) => s.seq),
+    [1, 2, 3],
+  );
+});

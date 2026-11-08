@@ -87,41 +87,43 @@ function finishLoss(db, fight) {
 }
 
 export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = null, rng, modifiers } = {}) {
-  const hero = getHero(db, saveId);
-  if (!hero) throw new Error('No hero yet. Create one first.');
-  const status = worldStatus(db, saveId);
-  if (!status.complete) throw new Error(`The world is not ready yet (missing: ${status.missing.join(', ')}).`);
   if (!Object.hasOwn(ENEMY_TIERS, tier))
     throw new Error(`Unknown tier "${tier}". Use one of: ${Object.keys(ENEMY_TIERS).join(', ')}.`);
   if (aggressor !== 'hero' && aggressor !== 'npc')
     throw new Error(`Aggressor must be "hero" or "npc", got "${aggressor}".`);
   if (questId !== null && !getQuest(questId)) throw new Error(`Unknown quest "${questId}".`);
 
-  const slot = String(npcSlot ?? '')
-    .trim()
-    .toUpperCase();
-  const spot = SKELETON.npcs.find((n) => n.slot === slot);
-  if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
-  if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
-  requireAwake(db, saveId, slot);
-  if (slot === BOSS_SLOT) {
-    const { remaining } = getProgress(db, saveId);
-    if (remaining.length)
-      throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
-    if (tier !== 'tough') throw new Error('The final boss is always tough.');
-  }
-
-  if (aggressor === 'npc' && !questId) {
-    const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
-    const given = row?.count ?? 0;
-    if (given <= WARNINGS_BEFORE_FIGHT) {
-      throw new Error(
-        `${slot} has only given ${given} warning(s). They need ${WARNINGS_BEFORE_FIGHT + 1} before starting a fight.`,
-      );
-    }
-  }
-
+  // Everything below reads state, so it all happens under the write lock: a second begin that
+  // waited for the first sees the fight the first one made and is refused.
   return inTransaction(db, () => {
+    const hero = getHero(db, saveId);
+    if (!hero) throw new Error('No hero yet. Create one first.');
+    const status = worldStatus(db, saveId);
+    if (!status.complete) throw new Error(`The world is not ready yet (missing: ${status.missing.join(', ')}).`);
+    const slot = String(npcSlot ?? '')
+      .trim()
+      .toUpperCase();
+    const spot = SKELETON.npcs.find((n) => n.slot === slot);
+    if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
+    if (openFight(db, saveId)) throw new Error('A fight is already in progress.');
+    requireAwake(db, saveId, slot);
+    if (slot === BOSS_SLOT) {
+      const { remaining } = getProgress(db, saveId);
+      if (remaining.length)
+        throw new Error(`The way to the final boss is shut. Solve every quest first (left: ${remaining.join(', ')}).`);
+      if (tier !== 'tough') throw new Error('The final boss is always tough.');
+    }
+
+    if (aggressor === 'npc' && !questId) {
+      const row = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
+      const given = row?.count ?? 0;
+      if (given <= WARNINGS_BEFORE_FIGHT) {
+        throw new Error(
+          `${slot} has only given ${given} warning(s). They need ${WARNINGS_BEFORE_FIGHT + 1} before starting a fight.`,
+        );
+      }
+    }
+
     const npc = db.prepare('SELECT name FROM world_npcs WHERE save_id = ? AND slot = ?').get(saveId, slot);
     const stats = heroStats(hero);
     const enemy = ENEMY_TIERS[tier];
@@ -153,12 +155,11 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
 }
 
 export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = false, modifiers } = {}) {
-  const fight = openFight(db, saveId);
-  if (!fight) throw new Error('No fight in progress.');
-  const hero = getHero(db, saveId);
-  const stats = heroStats(hero, modifiers);
-
   return inTransaction(db, () => {
+    const fight = openFight(db, saveId);
+    if (!fight) throw new Error('No fight in progress.');
+    const hero = getHero(db, saveId);
+    const stats = heroStats(hero, modifiers);
     let enemyHp = fight.enemy_hp;
     const attack = attackRoll(db, saveId, stats.attackBonus, fight.enemy_ac, rng, 'hero attack');
     const hit = sureHit || attack.hit;
@@ -211,20 +212,22 @@ function enemyResponds(db, saveId, fightId, hero, rng, modifiers) {
 
 // A failed advanced move: the hero does nothing this turn, the enemy still acts.
 export function loseHeroTurn(db, saveId, { rng, modifiers } = {}) {
-  const fight = openFight(db, saveId);
-  if (!fight) throw new Error('No fight in progress.');
-  const hero = getHero(db, saveId);
   return inTransaction(db, () => {
+    const fight = openFight(db, saveId);
+    if (!fight) throw new Error('No fight in progress.');
+    const hero = getHero(db, saveId);
     logFightStep(db, fight.id, { actor: 'hero', action: 'move', detail: 'the move fails and the turn is lost' });
     return enemyResponds(db, saveId, fight.id, hero, rng, modifiers);
   });
 }
 
 export function fleeFight(db, saveId) {
-  const fight = openFight(db, saveId);
-  if (!fight) throw new Error('No fight in progress.');
-  logFightStep(db, fight.id, { actor: 'hero', action: 'flee', detail: 'the hero runs' });
-  endFight(db, fight.id, 'fled');
-  clearWarnings(db, fight);
-  return stateOf(db, fight.id);
+  return inTransaction(db, () => {
+    const fight = openFight(db, saveId);
+    if (!fight) throw new Error('No fight in progress.');
+    logFightStep(db, fight.id, { actor: 'hero', action: 'flee', detail: 'the hero runs' });
+    endFight(db, fight.id, 'fled');
+    clearWarnings(db, fight);
+    return stateOf(db, fight.id);
+  });
 }
