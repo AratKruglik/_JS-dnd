@@ -11,7 +11,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Foundation and tracking, covering spec sections 6, 7, 8.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -22,7 +22,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Game DB and script layer, covering spec sections 6, 5.7 (fight log), 5.8.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -33,7 +33,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Quest engine, covering spec sections 5.3, 5.5, 5.6.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -44,7 +44,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: World and hero generation, covering spec sections 5.1, 5.2, 5.4.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -55,7 +55,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Combat, covering spec section 5.7.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -66,7 +66,7 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Stamina bar, covering spec sections 5.9, 8.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```
 
@@ -77,6 +77,6 @@ Read docs/superpowers/specs/2026-11-07-js-dnd-campaign-design.md in full.
 Run `node dev/cli.js status` and read the current state first.
 Plan only this subsystem: Ending stats page, covering spec section 5.10.
 Follow the spec's [My call] / [My guess] / [Unchecked] markers: do not treat guesses as decisions, and verify anything marked [Unchecked] before relying on it.
-Constraints: no git commands unless I ask, ask before any outward-facing action, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
+Constraints: commit and push yourself with plain messages (never a co-author or Claude line, never force-push without asking), ask before other outward-facing actions, no em-dash or en-dash anywhere, deterministic work in scripts, game data only in SQLite through scripts.
 Write the plan to docs/superpowers/plans/ using the writing-plans skill. Tell me anything the spec leaves open and ask before you assume it.
 ```

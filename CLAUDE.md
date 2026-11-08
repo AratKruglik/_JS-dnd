@@ -8,8 +8,9 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 
 ## Working rules
 
-- No git commands unless Gogi asks.
-- Ask before any outward-facing action (GitHub issues, projects, pushes, posts).
+- Claude makes the commits and pushes to origin/main after each finished piece. Plain commit messages. NEVER a `Co-Authored-By` line, a "Generated with Claude" line, or any Claude attribution in commits or PR text.
+- Never force-push or rewrite pushed history without asking Gogi first.
+- Ask before other outward-facing actions (GitHub issues, projects, posts).
 - No em-dash or en-dash anywhere: code, comments, docs, commit text, output.
 - Deterministic work belongs in scripts. The agent only does judgment work.
 - Game state lives in SQLite reached through scripts. Never JSON or markdown files as game state.
