@@ -80,7 +80,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | D&D combat                                    | 5     | Done    | A simple D&D core: initiative, HP, AC, attack and damage rolled by script. NPCs warn twice before they fight (warnings clear when a fight ends), quest fights need no warning, a beaten NPC is knocked out until you solve another quest, and defeat means waking at the start.                                                                                                |
 | JS moves in combat                            | 5     | Done    | A spectacular move triggers a JS problem the Master writes. A script rejects any problem whose own reference solution fails. A pass is a sure hit with double damage, a fail loses the turn. A subagent writes the hidden tests so you never see them, and the Master reads your move file for cheating.                                                                                 |
 | Code style check on quest files | 3 | Done | Prettier and ESLint run on a passing quest file. Problems are shown with their lines, the player may fix them or keep the file and lose a little honor. Needs `npm install`, which `setup.sh` runs, and is skipped when the tools are missing. |
-| Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice file is checked before every command. A change resets you to level 1 in the same world and keeps your history. |
+| Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice and rolls files is checked before every command. A change, a deletion, or a broken file resets you to level 1 in the same world, keeps your race bonuses, and keeps your history. |
 | Stamina bar from the real 5hr limit           | 6     | In progress | A project status line reads the real usage and stores it in the DB, with a game-time estimate as fallback. Built and tested, still needs one live check in a fresh Claude Code session. |
 | Tiredness penalties                           | 6     | Done | None before 60% used, then attack and AC drop in steps. Near the end of the window the hero collapses and play stops until it resets. |
 | Hidden ending stats page                      | 7     | Done | A final boss guards it. After every quest and the boss, a script builds one self-contained page with time played (estimated), enemies defeated, tasks solved, and honor and complexity charts. Subjects learned is not built, and nobody has played from a fresh hero to the ending yet. |
@@ -111,11 +111,11 @@ node game/cli.js honor add 10 help "helped the baker"
 node game/cli.js integrity check
 ```
 
-The quest loop works too (use the same throwaway save). A quest names a file in `player/`, you write your solution there, and the game checks it:
+The quest and combat commands need a hero and a finished world, which `/play` builds. To try them on a throwaway save, start Claude Code from the terminal where you ran the `export` line above and run `/play`: the Master's scripts then use that save. These are the quest commands it runs:
 
 ```bash
 node game/cli.js quest list
-node game/cli.js quest start dice-roll      # writes player/dice-roll.js with a starter stub
+node game/cli.js quest start dice-roll      # writes dice-roll.js into the player folder with a starter stub
 node game/cli.js quest check dice-roll      # step 1: runs your file against the fixed check
 node game/cli.js quest judge dice-roll clean "no cheating spotted"   # step 2: the Master's verdict
 node game/cli.js link check https://developer.mozilla.org/en-US/docs/Web/JavaScript

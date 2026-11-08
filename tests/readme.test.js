@@ -57,3 +57,15 @@ test('the combat example is the real flow, not the old logging command', () => {
   assert.match(scripts, /fight begin --npc N1/);
   assert.match(scripts, /fight attack/);
 });
+
+test('the quest commands are shown after the sentence that says they need a finished world', () => {
+  const scripts = readme.slice(at('\n## Try the scripts'), at('\n## Repo layout'));
+  const needs = scripts.indexOf('finished world');
+  const quest = scripts.indexOf('quest start dice-roll');
+  assert.ok(needs >= 0 && quest > needs, 'the quest sample must come after the finished world note');
+});
+
+test('the feature list says the fingerprint covers both the dice and rolls files', () => {
+  const row = readme.split('\n').find((l) => l.includes('Dice tamper detection'));
+  assert.match(row, /dice and rolls/i);
+});

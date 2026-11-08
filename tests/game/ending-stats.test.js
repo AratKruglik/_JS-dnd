@@ -12,7 +12,7 @@ import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { addHonorEvent, getHonor } from '../../game/honor.js';
 import { QUESTS } from '../../quests/index.js';
-import { freshDb } from './helpers.js';
+import { freshDb, markSolved } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), '..', 'quests', 'solutions');
@@ -225,3 +225,18 @@ for (const [source, addRow] of Object.entries(SOURCE_ROWS)) {
     assert.equal(collectStats(db, lonely).minutes, 0, `${source} leaked in from another save`);
   });
 }
+
+test('a revoked solve is not listed as solved and does not feed the complexity chart', () => {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  markSolved(db, saveId, 'dice-roll', '2026-11-08T10:00:00.000Z');
+  markSolved(db, saveId, 'string-shout', '2026-11-08T10:05:00.000Z');
+  db.prepare("UPDATE quest_solves SET revoked_at = '2026-11-08T10:10:00.000Z' WHERE quest_id = 'string-shout'").run();
+  const stats = collectStats(db, saveId);
+  assert.deepEqual(
+    stats.tasks.list.map((t) => t.id),
+    ['dice-roll'],
+  );
+  assert.equal(stats.complexity.length, 1);
+  assert.equal(stats.tasks.solved, 1);
+});

@@ -235,3 +235,8 @@ test('every --flag play.md mentions next to a command is a real option in the CL
   assert.ok(flags.size >= 8, `only ${flags.size} flags found`);
   for (const flag of flags) assert.ok(usage.includes(flag), `play.md uses ${flag} but the usage does not list it`);
 });
+
+test('play.md says a revoke also takes back the bonus the solve paid', () => {
+  const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
+  assert.match(quests, /takes back the bonus/i);
+});

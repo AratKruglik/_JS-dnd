@@ -8,6 +8,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -136,4 +137,9 @@ test('no npm at all only warns, and setup still completes', () => {
   assert.match(result.stdout, /Setup complete/);
   assert.match(result.stderr, /npm/);
   assert.match(result.stderr, /style check will be skipped/i);
+});
+
+test('setup.sh names both sealed files when it tells a player what to restore', () => {
+  const script = readFileSync(join(root, 'setup.sh'), 'utf8');
+  assert.match(script, /game\/dice\.js and game\/rolls\.js/);
 });

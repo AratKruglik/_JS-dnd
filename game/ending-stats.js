@@ -49,7 +49,7 @@ export function collectStats(db, saveId) {
 
   const solves = db
     .prepare(
-      'SELECT quest_id, solved_at, epoch, hints_used, complexity FROM quest_solves WHERE save_id = ? ORDER BY solved_at, id',
+      'SELECT quest_id, solved_at, epoch, hints_used, complexity FROM quest_solves WHERE save_id = ? AND revoked_at IS NULL ORDER BY solved_at, id',
     )
     .all(saveId);
   let running = 0;

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inTransaction } from './db.js';
-import { getHonor } from './honor.js';
+import { addHonorEvent, getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
@@ -199,6 +199,20 @@ export function revokeSolve(db, saveId, questId, note = null) {
     if (!solve) throw new Error(`Quest "${quest.id}" is not solved in this epoch, so there is nothing to revoke.`);
     if (solve.revoked_at !== null) throw new Error(`The solve of "${quest.id}" is already revoked.`);
     db.prepare('UPDATE quest_solves SET revoked_at = ? WHERE id = ?').run(now(), solve.id);
+    // Take back the bonus this solve really paid, so being caught late costs the same as being
+    // caught at judging. Then the cheat penalty.
+    const paid = db
+      .prepare(
+        "SELECT delta FROM honor_events WHERE save_id = ? AND kind IN ('clean_solve', 'clean_solve_no_hints') AND reason = ? ORDER BY id DESC LIMIT 1",
+      )
+      .get(saveId, `solved ${quest.id}`);
+    if (paid && paid.delta > 0) {
+      addHonorEvent(db, saveId, {
+        delta: -paid.delta,
+        kind: 'revoke_bonus',
+        reason: `took back the bonus for ${quest.id}`,
+      });
+    }
     return {
       revoked: true,
       honor: applyHonorRule(db, saveId, 'cheat', note ?? `cheated on ${quest.id}, found after the solve`),

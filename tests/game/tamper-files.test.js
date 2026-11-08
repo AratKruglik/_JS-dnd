@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,4 +49,12 @@ test('a bad option under tampering is reported as tampering, exit 2', () => {
   const { dir, run } = copyOfTheGame();
   appendFileSync(join(dir, 'game', 'rolls.js'), '\n// rigged\n');
   assert.equal(run('roll', 'd20', '--bogus').status, 2);
+});
+
+test('an old one line seal file is reported as broken, not as tampering', () => {
+  const { dir, run } = copyOfTheGame();
+  writeFileSync(join(dir, 'game', 'dice.sha256'), `${'a'.repeat(64)}\n`);
+  const result = run('look');
+  assert.equal(result.status, 1);
+  assert.match(JSON.parse(result.stderr.trim()).error, /missing or broken/i);
 });

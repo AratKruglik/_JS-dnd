@@ -14,7 +14,7 @@ Legend for status: **open** means still true in the code, **fixed** means a late
 | A4 | Unconditional `ROLLBACK` can mask the original error, and nested blocks have no `SAVEPOINT` | Plan 2 | open |
 | A5 | The tamper path crashes with exit 1 if the DB cannot be opened | Plan 2 | open |
 | A6 | `judgeQuest` and `logHint` atomicity is not pinned | Plan 3 | **fixed** (pinned: judge and hint roll back fully) |
-| A7 | Fight and move state is read before the transaction opens, so two parallel Bash calls can double-apply (two `move check` give two sure hits, two `fight attack` lose a damage update, two `fight begin` leave two open fights) | Plan 5 | **fixed** (state reads moved inside the transaction, tested with real processes) |
+| A7 | Fight and move state is read before the transaction opens, so two parallel Bash calls can double-apply (two `move check` give two sure hits, two `fight attack` lose a damage update, two `fight begin` leave two open fights) | Plan 5 | **fixed** (state reads moved inside the transaction, each stale-read mutation is caught by a real-process test that holds the write lock; migrate takes no lock on an up to date database) |
 | A8 | `proposeMove` is not atomic (row inserted before the stub is written) and overwrites an existing `move-<id>.js` | Plan 5 | **fixed** (proposal is one unit, an existing stub is kept as .old.js) |
 | A9 | Read-only commands take a write lock through `touchWindow`, so `look` can wait behind a status line write | Plan 6 | open |
 
@@ -63,7 +63,7 @@ Legend for status: **open** means still true in the code, **fixed** means a late
 
 | Id | Finding | Source | Status |
 |---|---|---|---|
-| E1 | Two CLI tests use real `Math.random` on tough fights: about 0.8 percent of suite runs fail (one such red run was seen again during the style work) | Plan 5 | **fixed** (the five tests stage fights through the library with a scripted rng) |
+| E1 | Two CLI tests use real `Math.random` on tough fights: about 0.8 percent of suite runs fail (one such red run was seen again during the style work) | Plan 5 | **fixed** (the two tests that needed a tough fight stage it through the library with a scripted rng, the rest use the weak tier where real dice cannot end the fight; ten clean runs of the CLI test file) |
 | E2 | Hours tests are weak (some timestamp sources are unpinned) and no test uses more than one save | Plan 7 | **fixed** (every timestamp source and a second save are pinned) |
 | E3 | Same-millisecond reset is not tested | Plan 7 | **fixed** (same-millisecond reset and solve are pinned) |
 | E4 | Page tests miss attribute quoting, mark `<title>` escaping, the 300-dot cap, and the y clamp | Plan 7 | **fixed** (attribute quoting, mark titles, the dot cap, and the clamp are pinned) |
@@ -96,6 +96,15 @@ Legend for status: **open** means still true in the code, **fixed** means a late
 - G3: player code stays unsandboxed (accepted).
 - G4: the fingerprint covers `game/dice.js` and `game/rolls.js` (built).
 - B10: a late cheated verdict revokes a solve (built as `quest revoke`).
+
+## Found by the final review of the findings plan, 2026-11-08
+
+- Fixed: the parallel tests were blind because `migrate` took the write lock on every open (it now locks only for a missing migration, which also stops read-only commands from waiting behind a writer).
+- Fixed: a missing or broken `game/dice.js` or `game/rolls.js` crashed the CLI instead of counting as tampering. `game/cli.js` is now a small front door that checks the seal first and then loads `game/cli-main.js`.
+- Fixed: the README quest sample ran before a world existed.
+- Fixed: a late revoke now also takes back the bonus the solve paid.
+- Fixed: a revoked solve no longer shows in the ending stats. A cheated verdict leaving an NPC asleep is pinned.
+- Accepted, not fixed: the `JSDND_DICE_PATH`, `JSDND_ROLLS_PATH`, and `JSDND_DICE_SEAL` overrides are honored in production (honor system, spec section 4). A one-line or malformed seal reads as "missing or broken". `move-<id>.old.js` is overwritten if it already exists. The never-settled error has no machine code field.
 
 ## Fixed since they were recorded
 
