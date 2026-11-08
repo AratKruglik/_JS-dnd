@@ -38,7 +38,7 @@ Run `node dev/cli.js status` to see what is currently recorded.
 ## Commands
 
 - `node --test` runs all tests. They include a style test: `npm run lint` and `npm run format` fix what it flags.
-- Code style is Prettier (`.prettierrc.json`) plus ESLint (`eslint.config.js`). `game/dice.js` is excluded from both: it is fingerprinted, never format it.
+- Code style is Prettier (`.prettierrc.json`) plus ESLint (`eslint.config.js`). `game/dice.js` and `game/rolls.js` are excluded from both: they are fingerprinted together in `game/dice.sha256`, never format them. After an intended change run `node game/seal.js`.
 - The player's quest files are checked with `eslint.player.config.js` and the same Prettier config (`game/style-check.js`).
 - `bash setup.sh` checks Node and `node:sqlite`.
 - `bash dev/github/seed.sh` is a dry run. `--apply` creates labels, the board, and issues, and must not be run again without Gogi's approval.

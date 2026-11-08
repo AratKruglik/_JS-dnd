@@ -64,7 +64,7 @@ Calls made while planning (Gogi can reject any):
 |---|---|
 | `game/i18n.js` | `t`, plural handling, fallback handler, strict mode, language get and set |
 | `game/locales/en.js`, `uk.js` | Strings and the pack: glossary, roast, bannedPhrases, voiceTips, races, classes |
-| `game/schema.js` | Migration 11: `saves.language` |
+| `game/schema.js` | Migration 12: `saves.language` (migration 11 is `quest_solves.revoked_at`, from the findings plan) |
 | `game/voice.js`, `game/world.js` | Unicode-aware lint per language |
 | `game/rules.js`, `game/hero.js` | Display names, aliases, display fields |
 | `quests/text/en.js`, `uk.js`, `quests/messages.js` | Quest text and check message codes |
@@ -79,7 +79,7 @@ Calls made while planning (Gogi can reject any):
 
 **Files:**
 - Create: `game/i18n.js`, `game/locales/en.js`, `game/locales/uk.js`
-- Modify: `game/schema.js` (migration 11), `game/cli.js`
+- Modify: `game/schema.js` (migration 12), `game/cli.js`
 - Test: `tests/game/i18n.test.js`, `tests/game/locales.test.js`, `tests/game/cli.test.js`
 
 **Interfaces:**
@@ -87,7 +87,7 @@ Calls made while planning (Gogi can reject any):
 
 - [ ] **Step 1: Write the failing tests.** `t`: lookup, `{name}` placeholders, `uk` plurals for 1, 2, 5, 11, 12, 21, 22, 25, 100, 101, a missing `uk` key falls back to English and calls the handler, strict mode throws on a missing key and a missing placeholder, unknown language throws. DB: new save has `language` null, `setLanguage` round trips, bad code rejected, `effectiveLanguage` maps null to `en`. CLI: `lang show` and `lang set` work, reject extra arguments and bad codes, are not blocked by a stamina collapse, and are in the usage text. Parity tests in `locales.test.js`: every `en` key exists in `uk` and the reverse, same placeholders, `uk` plural entries have every category, no Latin letters in `uk` outside the allowed spots, no dash characters in either file.
 - [ ] **Step 2: Run to see them fail.** Run: `node --test`. Expected: FAIL, modules missing.
-- [ ] **Step 3: Implement** `game/i18n.js`, the two catalogs with an initial handful of keys, migration 11 (`ALTER TABLE saves ADD COLUMN language TEXT CHECK (language IN ('en', 'uk'))`), and the `lang` commands.
+- [ ] **Step 3: Implement** `game/i18n.js`, the two catalogs with an initial handful of keys, migration 12 (`ALTER TABLE saves ADD COLUMN language TEXT CHECK (language IN ('en', 'uk'))`), and the `lang` commands.
 - [ ] **Step 4: Run the full suite, lint, and format check.** Expected: PASS.
 - [ ] **Step 5: Commit and push.** `git commit -m "Add the i18n core and the per-save language"`.
 
@@ -191,7 +191,7 @@ Calls made while planning (Gogi can reject any):
 - Modify: `game/links.js`, `README.md`, `CLAUDE.md`, `eslint.config.js`
 - Test: `tests/game/links.test.js`, `tests/license.test.js` (or a new docs test), `tests/style.test.js`
 
-- [ ] **Step 1: Write the failing tests.** `uk.javascript.info` is legal, `javascript.info.evil.test` and `uk.javascript.info@evil.test` are not, a bare `uk.javascript.info/...` is read as https. `README.uk.md` exists, is Cyrillic prose, links to the English README, mentions the license, has no dash characters, and the English README links to it. The review checklist lists every `uk` pack area and catalog file. The ESLint guard flags a multiword English string literal in a listed player-facing file and passes the listed files today.
+- [ ] **Step 1: Write the failing tests.** `uk.javascript.info` is legal, `javascript.info.evil.test` and `uk.javascript.info@evil.test` are not, a bare `uk.javascript.info/...` is read as https. `README.uk.md` exists, is Cyrillic prose, links to the English README, mentions the license, has no dash characters, and follows the English README order (description, how to play, requirements and setup, license) with no developer content. Line one of both READMEs is the language switcher (`English | Українська`), each linking to the other, and a test pins both links. The switcher is added in this task, together with the Ukrainian README, so it never points at a missing file. The review checklist lists every `uk` pack area and catalog file. The ESLint guard flags a multiword English string literal in a listed player-facing file and passes the listed files today.
 - [ ] **Step 2: Run to see them fail.**
 - [ ] **Step 3: Implement** the link entry, the two docs, the README and `CLAUDE.md` notes (language commands, catalogs, the review gate), and the guard (`no-restricted-syntax` on `Literal` and `TemplateElement` with two or more English words, limited to the player-facing modules). Known gap, written in the checklist: it catches prose, not single words, and CLI error text is out of scope by decision.
 - [ ] **Step 4: Run the full suite, lint, and format check.** Dash scan: `grep -rnP '[\x{2013}\x{2014}]' game quests tests dev .claude docs README.md README.uk.md CLAUDE.md setup.sh` prints nothing.

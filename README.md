@@ -4,21 +4,25 @@ A D&D-style adventure you play in your terminal, with your own AI model as the D
 
 Built for JS beginners who want to learn programming but are tired of gamified quizzes. Finish the campaign and you have solid JS fundamentals up to async: the event loop, timeouts, and fetch.
 
-> **Status: all seven build plans are done and tested, but no one has played a full campaign yet.** The engine, hero, world, quests, combat, stamina bar, and ending are built. Only three starter quests exist, so the curriculum up to async is still content to write, and the live checks (a real `/play` run and the stamina bar in a fresh Claude Code session) are still open. See the [feature list](#feature-list) for what is done and what is not.
+## How to play
 
-## How it will play
+**You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
 
-1. Clone the repo and run one setup script.
-2. Start the game in a terminal with your AI model. Claude first, Gemini and others later.
-3. Build a hero: pick a race and a class (custom ones allowed), name them, and spend trait points on abilities.
-4. The Master offers a few setting versions, from medieval to cyberpunk to Mad Max to a book or film world. Pick one, customize it, or write your own.
-5. The Master generates your world. The number of locations, NPCs, and quests is the same for everyone. The setting and the story flavor are yours alone.
-6. Walk between locations, talk to NPCs, and take quests. Each quest names a file. You write the solution in it.
-7. The game runs your code, then the Master reads it. Cheat and your honor drops. Be a jerk and NPCs avoid you and roast you.
-8. Your stamina is your real 5 hour AI usage window. The more of it you burn, the more tired your hero gets.
-9. Finish the campaign and a hidden stats page shows what you learned.
+1. Clone the repo and run `bash setup.sh` once. It checks Node, installs the code style tools with npm, and creates your local save.
+2. Open the folder in Claude Code and type `/play`.
+3. Build your hero: pick a race and a class (custom ones allowed), name them, and spend your points on abilities.
+4. The Master offers a few settings, from medieval to cyberpunk to Mad Max to a book or film world. Pick one, customize it, or write your own.
+5. The Master builds your world. Everyone gets the same number of places, people, and quests. The setting and the story are yours alone.
+6. Walk between places, talk to people, and take quests. Each quest names a file in the `player/` folder. You write your solution in it, in your own editor.
+7. Tell the Master when it is ready. The game runs your code first. If it passes, the Master reads it. Cheat and your honor drops. Be a jerk and people avoid you and roast you. Fix or keep the style problems the game points out.
+8. Your hero's stamina is your real 5 hour AI usage window, shown in the bar at the bottom. Past 60 percent your hero tires, and near the end they collapse until the window resets.
+9. Beat every quest, then the final boss, and a page of your whole journey is built for you.
 
-## Technologies
+Honor is your reputation. Kind words, honest solves, and helping people raise it. Cheating, swearing, and picking fights lower it, and low honor gets you roasted instead of reviewed gently.
+
+Never edit `game/dice.js` or `game/rolls.js`. The game fingerprints both, and a changed or missing file resets your hero to level 1. The dice code is meant to be read, so open it and write your own copy elsewhere if you want to experiment.
+
+## Tech stack
 
 | Part               | Choice                     | Why                                                                                                                            |
 | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -32,6 +36,12 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 | Code style         | Prettier and ESLint        | Dev dependencies, installed by `setup.sh`. They check this repo and the style of the player's quest files. The game plays without them. |
 
 Game state lives only in SQLite, reached through scripts, never in JSON or markdown files. That keeps token use low so a player gets more play out of one usage window.
+
+## Project status
+
+Everything from here down is for people building the game.
+
+**Status: all seven build plans are done and tested, but no one has played a full campaign yet.** The engine, hero, world, quests, combat, stamina bar, and ending are built. Only three starter quests exist, so the curriculum up to async is still content to write, and the live checks (a real `/play` run and the stamina bar in a fresh Claude Code session) are still open. See the [feature list](#feature-list) for what is done and what is not.
 
 ## Feature list
 
@@ -80,9 +90,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 
 Each plan has an epic issue on the board: [Plan 2](https://github.com/yamnyk/_JS-dnd/issues/1), [Plan 3](https://github.com/yamnyk/_JS-dnd/issues/2), [Plan 4](https://github.com/yamnyk/_JS-dnd/issues/3), [Plan 5](https://github.com/yamnyk/_JS-dnd/issues/4), [Plan 6](https://github.com/yamnyk/_JS-dnd/issues/5), [Plan 7](https://github.com/yamnyk/_JS-dnd/issues/6).
 
-## Try what exists
-
-You need Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on).
+## Try the scripts
 
 ```bash
 bash setup.sh        # checks Node and node:sqlite, creates the game DB in data/
@@ -100,7 +108,6 @@ node game/cli.js init
 node game/cli.js hero create --name Bilbo --race hobbit --class rogue --scores 8,15,14,8,8,15
 node game/cli.js roll 2d6 --context "goblin attack"
 node game/cli.js honor add 10 help "helped the baker"
-node game/cli.js fight start "shopkeeper warned twice"
 node game/cli.js integrity check
 ```
 
@@ -115,11 +122,18 @@ node game/cli.js link check https://developer.mozilla.org/en-US/docs/Web/JavaScr
 node game/cli.js honor event swearing "cursed at the baker"
 ```
 
-Combat needs a hero and a finished world, which `/play` sets up. After that the Master uses `npc warn`, `fight begin`, `fight attack`, `fight flee`, and, for spectacular moves, `move propose` and `move check`.
+Combat needs a hero and a finished world, which `/play` sets up. After that the Master runs a fight like this:
 
-To play, open this folder in Claude Code and type `/play`. Claude becomes the Dungeon Master and walks you through making a hero, choosing a setting, and exploring a world made just for you. The scripts above are what it uses behind the scenes.
+```bash
+node game/cli.js npc warn N1 "stood behind the counter"           # the first two warnings are only warnings
+node game/cli.js fight begin --npc N1 --tier weak --aggressor hero
+node game/cli.js fight attack                                      # one hero turn, then the enemy answers
+node game/cli.js fight flee                                        # or run
+```
 
-Don't edit `game/dice.js`. The game fingerprints it, and a changed or missing dice file resets your hero to level 1. (Developers who change it on purpose re-seal it with `node game/seal.js`.)
+For spectacular moves it also uses `move propose` and `move check`.
+
+Developers who change a sealed file on purpose (`game/dice.js` or `game/rolls.js`) re-seal it with `node game/seal.js`.
 
 `node dev/cli.js board-config yamnyk 3` points the dev tooling at the GitHub board. The dev notes DB lives in `.dev/` and is not committed.
 
