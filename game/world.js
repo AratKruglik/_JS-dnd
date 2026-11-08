@@ -1,6 +1,9 @@
 import { inTransaction } from './db.js';
+import { getHero } from './hero.js';
+import { getProgress } from './quests.js';
 import { lintVoice } from './voice.js';
 import { SKELETON } from '../world/skeleton.js';
+import { QUESTS } from '../quests/index.js';
 
 const SOURCES = ['offered', 'customized', 'written'];
 const now = () => new Date().toISOString();
@@ -122,4 +125,79 @@ export function worldStatus(db, saveId) {
   if (locationsFilled < locationsTotal) missing.push('locations');
   if (npcsFilled < npcsTotal) missing.push('npcs');
   return { settingSet, locationsFilled, locationsTotal, npcsFilled, npcsTotal, missing, complete: missing.length === 0 };
+}
+
+// Everything below needs a hero and a finished world.
+function requireReady(db, saveId) {
+  const hero = getHero(db, saveId);
+  if (!hero) throw new Error('No hero yet. Create one first.');
+  const status = worldStatus(db, saveId);
+  if (!status.complete) throw new Error(`The world is not ready yet (missing: ${status.missing.join(', ')}).`);
+  return hero;
+}
+
+const locationRow = (db, saveId, slot) => {
+  const row = db
+    .prepare('SELECT slot, name, description FROM world_locations WHERE save_id = ? AND slot = ?')
+    .get(saveId, slot);
+  return { slot: row.slot, name: row.name, description: row.description };
+};
+
+const skeletonLocation = (slot) => SKELETON.locations.find((l) => l.slot === slot);
+
+export function look(db, saveId) {
+  const hero = requireReady(db, saveId);
+  const here = skeletonLocation(hero.locationSlot);
+  const npcNames = db.prepare('SELECT slot, name FROM world_npcs WHERE save_id = ?').all(saveId);
+  return {
+    location: locationRow(db, saveId, here.slot),
+    exits: here.exits.map((slot) => {
+      const row = locationRow(db, saveId, slot);
+      return { slot, name: row.name };
+    }),
+    npcs: SKELETON.npcs
+      .filter((n) => n.location === here.slot)
+      .map((n) => ({ slot: n.slot, name: npcNames.find((r) => r.slot === n.slot).name })),
+  };
+}
+
+// target is an exit slot (L2) or an exit name, case-insensitive.
+export function go(db, saveId, target) {
+  const hero = requireReady(db, saveId);
+  const here = skeletonLocation(hero.locationSlot);
+  const wanted = String(target ?? '').trim().toLowerCase();
+  const exits = here.exits.map((slot) => locationRow(db, saveId, slot));
+  const destination = wanted && exits.find((e) => e.slot.toLowerCase() === wanted || e.name.toLowerCase() === wanted);
+  if (!destination) {
+    const current = locationRow(db, saveId, here.slot);
+    throw new Error(
+      `"${target}" is not an exit from ${current.name}. Exits: ${exits.map((e) => `${e.slot} ${e.name}`).join(', ')}.`,
+    );
+  }
+  db.prepare('UPDATE heroes SET location_slot = ? WHERE save_id = ?').run(destination.slot, saveId);
+  return { location: { slot: destination.slot, name: destination.name } };
+}
+
+// A quest holder offers their quest only when every earlier quest is solved in the current
+// epoch and this one is not solved yet.
+export function talk(db, saveId, npcSlot) {
+  const hero = requireReady(db, saveId);
+  const spot = SKELETON.npcs.find((n) => n.slot === String(npcSlot ?? '').trim().toUpperCase());
+  if (!spot || spot.location !== hero.locationSlot) throw new Error(`${npcSlot} is not here.`);
+
+  const npc = db
+    .prepare('SELECT slot, name, description, voice FROM world_npcs WHERE save_id = ? AND slot = ?')
+    .get(saveId, spot.slot);
+
+  let offer = null;
+  if (spot.questId) {
+    const { solved } = getProgress(db, saveId);
+    const index = QUESTS.findIndex((q) => q.id === spot.questId);
+    const earlierSolved = QUESTS.slice(0, index).every((q) => solved.includes(q.id));
+    if (earlierSolved && !solved.includes(spot.questId)) {
+      const quest = QUESTS[index];
+      offer = { questId: quest.id, title: quest.title, brief: quest.brief };
+    }
+  }
+  return { npc: { slot: npc.slot, name: npc.name, description: npc.description, voice: npc.voice }, offer };
 }
