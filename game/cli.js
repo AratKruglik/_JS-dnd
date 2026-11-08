@@ -25,6 +25,7 @@ import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './com
 import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 import { touchWindow, currentStamina } from './stamina.js';
+import { buildEnding } from './ending.js';
 
 const USAGE = `Commands:
   init
@@ -369,6 +370,13 @@ function main() {
         const timeoutMs = process.env.JSDND_QUEST_TIMEOUT_MS ? Number(process.env.JSDND_QUEST_TIMEOUT_MS) : undefined;
         out({ ok: true, ...checkMove(db, currentSaveId(), toInt(rest[0], 'moveId'), { timeoutMs, modifiers: tiredness }) });
       } else fail(USAGE);
+      break;
+    }
+    // Not in USAGE on purpose: the Master reveals this at the end of the campaign.
+    case 'ending': {
+      if (sub !== 'build') fail(USAGE);
+      arity(rest, 0, 0, 'ending build');
+      out({ ok: true, ...buildEnding(db, currentSaveId()) });
       break;
     }
     case 'stamina': {

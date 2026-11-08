@@ -50,6 +50,7 @@ test('every "node game/cli.js <command>" in play.md exists in the CLI usage', ()
     const [, command, sub] = match;
     const phrase = needsSub.has(command) ? `${command} ${sub}` : command;
     seen.add(phrase);
+    if (command === 'ending') continue; // hidden on purpose, see the Ending test below
     assert.ok(usage.includes(phrase), `play.md uses "${phrase}" but the CLI usage does not list it`);
   }
   for (const required of ['init', 'look', 'go', 'talk', 'roll', 'quest check', 'quest judge', 'honor event', 'link use', 'voice lint']) {
@@ -157,4 +158,17 @@ test('play.md says the world has seven NPCs including the final boss', () => {
   assert.match(play, /7 NPC slots/);
   assert.match(play, /all seven NPCs/);
   assert.match(play, /final boss/i);
+});
+
+test('play.md has an Ending section for the boss and the hidden page, and the README keeps the command hidden', () => {
+  assert.match(play, /## Ending/);
+  const ending = play.slice(play.indexOf('## Ending'));
+  assert.ok(ending.includes('node game/cli.js ending build'));
+  assert.match(ending, /endingUnlocked/);
+  assert.match(ending, /final boss/i);
+  assert.match(ending, /every quest/i);
+  assert.match(ending, /never[^.]*(before|earlier)/i);
+  const readme = readFileSync(join(root, 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /ending build/);
+  assert.match(readme.split('\n').find((l) => l.includes('Hidden ending stats page')), /Done/);
 });

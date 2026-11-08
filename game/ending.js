@@ -1,4 +1,8 @@
-import { getProgress } from './quests.js';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { getProgress, defaultPlayerDir } from './quests.js';
+import { collectStats } from './ending-stats.js';
+import { renderPage } from './ending-page.js';
 
 export const BOSS_SLOT = 'N7';
 
@@ -21,4 +25,20 @@ export function endingStatus(db, saveId) {
     bossDefeated,
     unlocked: questsSolved === progress.total && bossDefeated,
   };
+}
+
+// Writes the stats page into the player folder. Refuses until the ending is unlocked.
+export function buildEnding(db, saveId, { playerDir = defaultPlayerDir() } = {}) {
+  const status = endingStatus(db, saveId);
+  if (!status.unlocked) {
+    const left = [];
+    if (status.questsSolved < status.questsTotal) left.push(`${status.questsTotal - status.questsSolved} quest(s) unsolved`);
+    if (!status.bossDefeated) left.push('the final boss still stands');
+    throw new Error(`The road is not over yet: ${left.join(' and ')}.`);
+  }
+  const stats = collectStats(db, saveId);
+  mkdirSync(playerDir, { recursive: true });
+  const file = join(playerDir, 'ending.html');
+  writeFileSync(file, renderPage(stats));
+  return { file, minutes: stats.minutes };
 }

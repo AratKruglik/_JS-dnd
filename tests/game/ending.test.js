@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdtempSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { endingStatus } from '../../game/ending.js';
+import { endingStatus, buildEnding } from '../../game/ending.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
@@ -125,4 +125,19 @@ test('the boss win without every quest never reports endingUnlocked', () => {
   const state = heroAttack(db, saveId, { rng: LOW, sureHit: true, doubleDamage: true });
   assert.equal(state.status, 'won');
   assert.equal('endingUnlocked' in state, false);
+});
+
+test('buildEnding writes the page only when the ending is unlocked', () => {
+  const { db, saveId, solveAll, winBoss } = ready();
+  const dir = mkdtempSync(join(tmpdir(), 'jsdnd-page-'));
+  assert.throws(() => buildEnding(db, saveId, { playerDir: dir }), /not over|boss|quest/i);
+  assert.equal(existsSync(join(dir, 'ending.html')), false);
+  solveAll();
+  winBoss();
+  const built = buildEnding(db, saveId, { playerDir: dir });
+  assert.equal(built.file, join(dir, 'ending.html'));
+  const html = readFileSync(built.file, 'utf8');
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /Bilbo/);
+  assert.match(html, /3 of 3/);
 });

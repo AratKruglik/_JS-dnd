@@ -1,13 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openGameDb } from '../../game/db.js';
 import { sealDice } from '../../game/integrity.js';
 import { count } from './helpers.js';
+import { checkQuest, judgeQuest } from '../../game/quests.js';
+import { beginFight, heroAttack } from '../../game/combat-engine.js';
+import { QUESTS } from '../../quests/index.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -738,4 +741,49 @@ test('move check uses the tired attack bonus for the sure hit it grants', () => 
   const total = Number(/\((\d+) vs AC/.exec(detail)[1]);
   const d20 = JSON.parse(db.prepare("SELECT results FROM dice_rolls WHERE context = 'hero attack'").get().results)[0];
   assert.equal(total - d20, 3);
+});
+
+function unlockEnding(game) {
+  const db = game.db();
+  const playerDir = game.env.JSDND_PLAYER_DIR;
+  mkdirSync(playerDir, { recursive: true });
+  for (const quest of QUESTS) {
+    copyFileSync(join(root, 'tests', 'quests', 'solutions', `${quest.id}.reference.js`), join(playerDir, `${quest.id}.js`));
+    checkQuest(db, 1, quest.id, { playerDir, timeoutMs: 15000 });
+    judgeQuest(db, 1, quest.id, 'clean', null, { playerDir });
+  }
+  db.prepare("UPDATE heroes SET location_slot = 'L6' WHERE save_id = 1").run();
+  const low = () => 0.01;
+  beginFight(db, 1, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: low });
+  let state;
+  do state = heroAttack(db, 1, { rng: low, sureHit: true, doubleDamage: true });
+  while (state.status === 'open');
+  return state;
+}
+
+test('the final boss is refused through the CLI until every quest is solved', () => {
+  const game = readyGame();
+  game.db().prepare("UPDATE heroes SET location_slot = 'L6' WHERE save_id = 1").run();
+  const result = game.run('fight', 'begin', '--npc', 'N7', '--tier', 'tough', '--aggressor', 'hero');
+  assert.equal(result.status, 1);
+  assert.match(JSON.parse(result.stderr.trim()).error, /final boss|quest/i);
+});
+
+test('ending build refuses while locked, builds the page when unlocked, and is not advertised', () => {
+  const game = readyGame();
+  const locked = game.run('ending', 'build');
+  assert.equal(locked.status, 1);
+  assert.equal(JSON.parse(locked.stderr.trim()).collapsed, undefined);
+  assert.equal(game.run('ending', 'build', 'extra').status, 1);
+  assert.equal(game.run('ending').status, 1);
+
+  assert.equal(unlockEnding(game).endingUnlocked, true);
+  const built = game.run('ending', 'build');
+  assert.equal(built.status, 0, built.stderr);
+  assert.match(readFileSync(built.json.file, 'utf8'), /Bilbo/);
+
+  const usage = game.run();
+  assert.doesNotMatch(usage.stderr, /ending/i);
+  setReading(game, 99);
+  assert.equal(game.run('ending', 'build').status, 0);
 });
