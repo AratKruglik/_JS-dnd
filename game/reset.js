@@ -24,6 +24,11 @@ export function applyTamperReset(db, saveId, { expected, found }) {
       kind: 'reset',
       reason: 'dice tampered',
     });
+    // An open fight does not survive the fall; it is abandoned, not deleted.
+    db.prepare("UPDATE fights SET ended_at = ?, outcome = 'abandoned' WHERE save_id = ? AND ended_at IS NULL").run(
+      new Date().toISOString(),
+      saveId,
+    );
     db.prepare('UPDATE heroes SET level = 1 WHERE id = ?').run(hero.id);
     db.prepare('UPDATE hero_abilities SET base = 8, trait_adjust = 0 WHERE hero_id = ?').run(hero.id);
     return { applied: true };

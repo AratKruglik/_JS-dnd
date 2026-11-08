@@ -166,4 +166,29 @@ CREATE TABLE world_npcs (
 );
 `,
   },
+  {
+    // Combat: fight state lives on the fights row (one enemy per fight), plus NPC warnings.
+    version: 6,
+    sql: `
+ALTER TABLE fights ADD COLUMN aggressor TEXT CHECK (aggressor IN ('hero', 'npc'));
+ALTER TABLE fights ADD COLUMN npc_slot TEXT;
+ALTER TABLE fights ADD COLUMN quest_id TEXT;
+ALTER TABLE fights ADD COLUMN enemy_name TEXT;
+ALTER TABLE fights ADD COLUMN enemy_tier TEXT;
+ALTER TABLE fights ADD COLUMN enemy_hp INTEGER;
+ALTER TABLE fights ADD COLUMN enemy_hp_max INTEGER;
+ALTER TABLE fights ADD COLUMN enemy_ac INTEGER;
+ALTER TABLE fights ADD COLUMN hero_hp INTEGER;
+ALTER TABLE fights ADD COLUMN hero_hp_max INTEGER;
+ALTER TABLE fights ADD COLUMN round INTEGER NOT NULL DEFAULT 1;
+CREATE TABLE npc_warnings (
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  npc_slot TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  last_reason TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (save_id, npc_slot)
+);
+`,
+  },
 ];
