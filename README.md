@@ -66,8 +66,8 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Setting choice and world generation           | 4     | Done    | A fixed skeleton of 6 locations and 6 NPCs lives in the repo. The Master only fills in names, descriptions, and voices.                                                                                                          |
 | Master voice per setting                      | 4     | In progress | A banned AI-speak list is enforced when the Master saves the world. Whether the writing actually sounds right can only be judged by playing.                                                                                           |
 | Choice-prompt play UI                         | 4     | Done    | The /play command drives Claude choice prompts. Every location has 4 exits or fewer, so no paging is needed. Claude specific.                                                                   |
-| D&D combat                                    | 5     | Planned | NPC warnings first, fights can sit inside quests                                                                                                |
-| JS moves in combat                            | 5     | Planned | Fancy moves trigger a hard JS problem. The Master generates it.                                                                                 |
+| D&D combat                                    | 5     | Done    | A simple D&D core: initiative, HP, AC, attack and damage rolled by script. NPCs warn twice before they fight, quest fights need no warning, and defeat means waking at the start.                                                                                                |
+| JS moves in combat                            | 5     | Done    | A spectacular move triggers a JS problem the Master writes. A script rejects any problem whose own reference solution fails. A pass is a sure hit with double damage, a fail loses the turn.                                                                                 |
 | Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice file is checked before every command. A change resets you to level 1 in the same world and keeps your history. |
 | Stamina bar from the real 5hr limit           | 6     | Planned | Whether a project-scoped bar can read that number is a research item                                                                            |
 | Tiredness penalties                           | 6     | Planned | Noticeable after 60% of the window is used                                                                                                      |
@@ -110,6 +110,8 @@ node game/cli.js quest judge dice-roll clean "no cheating spotted"   # step 2: t
 node game/cli.js link check https://developer.mozilla.org/en-US/docs/Web/JavaScript
 node game/cli.js honor event swearing "cursed at the baker"
 ```
+
+Combat needs a hero and a finished world, which `/play` sets up. After that the Master uses `npc warn`, `fight begin`, `fight attack`, `fight flee`, and, for spectacular moves, `move propose` and `move check`.
 
 To play, open this folder in Claude Code and type `/play`. Claude becomes the Dungeon Master and walks you through making a hero, choosing a setting, and exploring a world made just for you. The scripts above are what it uses behind the scenes.
 
