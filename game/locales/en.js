@@ -52,3 +52,33 @@ export const pack = {
     'rest assured',
   ],
 };
+
+// Display names and the other names a player may type for each race and class. The key (elf, wizard)
+// is stable and is what the database stores. Matching ignores case and spacing.
+export const names = {
+  races: {
+    human: { name: 'Human', aliases: [] },
+    elf: { name: 'Elf', aliases: [] },
+    dwarf: { name: 'Dwarf', aliases: [] },
+    halfling: { name: 'Halfling', aliases: ['hobbit'] },
+    gnome: { name: 'Gnome', aliases: [] },
+    'half-elf': { name: 'Half-elf', aliases: ['half elf'] },
+    'half-orc': { name: 'Half-orc', aliases: ['half orc'] },
+    tiefling: { name: 'Tiefling', aliases: [] },
+    dragonborn: { name: 'Dragonborn', aliases: [] },
+  },
+  classes: {
+    barbarian: { name: 'Barbarian', aliases: [] },
+    bard: { name: 'Bard', aliases: [] },
+    cleric: { name: 'Cleric', aliases: [] },
+    druid: { name: 'Druid', aliases: [] },
+    fighter: { name: 'Fighter', aliases: [] },
+    monk: { name: 'Monk', aliases: [] },
+    paladin: { name: 'Paladin', aliases: [] },
+    ranger: { name: 'Ranger', aliases: [] },
+    rogue: { name: 'Rogue', aliases: [] },
+    sorcerer: { name: 'Sorcerer', aliases: [] },
+    warlock: { name: 'Warlock', aliases: [] },
+    wizard: { name: 'Wizard', aliases: ['magician', 'mage'] },
+  },
+};

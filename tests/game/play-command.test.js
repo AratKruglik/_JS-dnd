@@ -264,3 +264,10 @@ test('play.md has a Language section with the rules the Master must follow', () 
   assert.match(language, /stored (world )?text/i);
   assert.match(language, /first (use|time)[^.]*quest/i);
 });
+
+test('play.md tells the Master to show races and classes by display name and pass the typed words on', () => {
+  const onboarding = play.slice(play.indexOf('## Onboarding'), play.indexOf('## Playing'));
+  assert.match(onboarding, /`display`/);
+  assert.match(onboarding, /both languages/i);
+  assert.match(onboarding, /raceDisplay/);
+});

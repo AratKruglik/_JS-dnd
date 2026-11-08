@@ -1141,3 +1141,69 @@ test('lang set returns the pack too, so the Master has it the moment the languag
   const set = game.run('lang', 'set', 'uk').json;
   assert.ok(set.pack.glossary.length > 10);
 });
+
+test('rules races and classes show display names and aliases for the language, with identical keys and bonuses', () => {
+  const game = readyGame();
+  const english = game.run('rules', 'races').json;
+  const halflingEn = english.races.find((r) => r.name === 'halfling');
+  assert.deepEqual([halflingEn.display, halflingEn.aliases.includes('hobbit')], ['Halfling', true]);
+
+  game.run('lang', 'set', 'uk');
+  const ukrainian = game.run('rules', 'races').json;
+  const halflingUk = ukrainian.races.find((r) => r.name === 'halfling');
+  assert.deepEqual([halflingUk.display, halflingUk.aliases.includes('гобіт')], ['напіврослик', true]);
+  assert.deepEqual(
+    ukrainian.races.map((r) => [r.name, r.bonuses]),
+    english.races.map((r) => [r.name, r.bonuses]),
+  );
+
+  const classes = game.run('rules', 'classes').json;
+  assert.deepEqual(classes.classes.slice().sort(), game.run('rules', 'classes').json.classes.slice().sort());
+  assert.equal(classes.details.find((c) => c.name === 'wizard').display, 'чарівник');
+  assert.equal(typeof classes.aliases, 'object');
+});
+
+test('a hero created with Ukrainian names is shown with display names, and English typed in a Ukrainian game works', () => {
+  const game = install();
+  game.run('init');
+  game.run('lang', 'set', 'uk');
+  const made = game.run(
+    'hero',
+    'create',
+    '--name',
+    'Більбо',
+    '--race',
+    'гобіт',
+    '--class',
+    'чарівник',
+    '--scores',
+    '8,15,14,8,8,15',
+  );
+  assert.equal(made.status, 0, made.stderr);
+  assert.deepEqual([made.json.hero.race, made.json.hero.heroClass], ['halfling', 'wizard']);
+  assert.deepEqual([made.json.hero.raceDisplay, made.json.hero.classDisplay], ['напіврослик', 'чарівник']);
+  const shown = game.run('hero', 'show').json.hero;
+  assert.deepEqual([shown.raceDisplay, shown.classDisplay], ['напіврослик', 'чарівник']);
+
+  game.run('lang', 'set', 'en');
+  const shownEn = game.run('hero', 'show').json.hero;
+  assert.deepEqual([shownEn.race, shownEn.raceDisplay, shownEn.classDisplay], ['halfling', 'Halfling', 'Wizard']);
+
+  const other = install();
+  other.run('init');
+  other.run('lang', 'set', 'uk');
+  const typedEnglish = other.run(
+    'hero',
+    'create',
+    '--name',
+    'Bilbo',
+    '--race',
+    'hobbit',
+    '--class',
+    'wizard',
+    '--scores',
+    '8,15,14,8,8,15',
+  );
+  assert.equal(typedEnglish.status, 0, typedEnglish.stderr);
+  assert.equal(typedEnglish.json.hero.raceDisplay, 'напіврослик');
+});

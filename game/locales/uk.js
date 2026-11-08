@@ -80,3 +80,34 @@ export const pack = {
     'зануримося в',
   ],
 };
+
+// Ukrainian display names and aliases for races and classes. DRAFT until Gogi has reviewed every name.
+// There is no official Ukrainian 5e release, so these follow common usage and the unofficial SRD
+// translation. The Ukrainian apostrophe is written as the modifier letter, matching ignores the variants.
+export const names = {
+  races: {
+    human: { name: 'людина', aliases: [] },
+    elf: { name: 'ельф', aliases: [] },
+    dwarf: { name: 'дварф', aliases: [] },
+    halfling: { name: 'напіврослик', aliases: ['гобіт', 'хоббіт', 'халфлінг'] },
+    gnome: { name: 'гном', aliases: [] },
+    'half-elf': { name: 'напівельф', aliases: ['напів-ельф', 'напів ельф'] },
+    'half-orc': { name: 'напіворк', aliases: ['напів-орк', 'напів орк'] },
+    tiefling: { name: 'тифлінг', aliases: ['тіфлінг'] },
+    dragonborn: { name: 'драконороджений', aliases: ['драконородий'] },
+  },
+  classes: {
+    barbarian: { name: 'варвар', aliases: [] },
+    bard: { name: 'бард', aliases: [] },
+    cleric: { name: 'жрець', aliases: ['клірик'] },
+    druid: { name: 'друїд', aliases: [] },
+    fighter: { name: 'воїн', aliases: ['боєць', 'файтер'] },
+    monk: { name: 'монах', aliases: [] },
+    paladin: { name: 'паладин', aliases: [] },
+    ranger: { name: 'рейнджер', aliases: ['слідопит'] },
+    rogue: { name: 'плут', aliases: ['шахрай', 'розбійник'] },
+    sorcerer: { name: 'чародій', aliases: [] },
+    warlock: { name: 'чорнокнижник', aliases: ['варлок'] },
+    wizard: { name: 'чарівник', aliases: ['маг'] },
+  },
+};

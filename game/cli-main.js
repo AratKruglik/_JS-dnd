@@ -22,7 +22,16 @@ import { checkStyle } from './style-check.js';
 import { join } from 'node:path';
 import { QUESTS } from '../quests/index.js';
 import { createHeroFromChoices } from './hero.js';
-import { ABILITIES, ALIASES, POINT_BUY_BUDGET, POINT_BUY_COSTS, STANDARD_CLASSES, STANDARD_RACES } from './rules.js';
+import {
+  ABILITIES,
+  ALIASES,
+  POINT_BUY_BUDGET,
+  POINT_BUY_COSTS,
+  STANDARD_CLASSES,
+  STANDARD_RACES,
+  aliasesFor,
+  displayName,
+} from './rules.js';
 import { readFileSync } from 'node:fs';
 import { setSetting, fillWorld, worldStatus, getSetting, look, go, talk } from './world.js';
 import { lintVoice } from './voice.js';
@@ -30,7 +39,16 @@ import { warnNpc, beginFight, heroAttack, fleeFight, getFightState } from './com
 import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 import { touchWindow, currentStamina } from './stamina.js';
-import { LANGUAGES, LANGUAGE_NAMES, getLanguage, setLanguage, effectiveLanguage, packFor, t } from './i18n.js';
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGES,
+  LANGUAGE_NAMES,
+  getLanguage,
+  setLanguage,
+  effectiveLanguage,
+  packFor,
+  t,
+} from './i18n.js';
 import { buildEnding } from './ending.js';
 
 const USAGE = `Commands:
@@ -232,6 +250,17 @@ function main() {
     );
     process.exit(1);
   }
+  // Before any save exists everything is English.
+  const currentLang = () => {
+    const first = firstSave();
+    return first ? effectiveLanguage(db, first.id) : DEFAULT_LANGUAGE;
+  };
+  const withDisplay = (hero) =>
+    hero && {
+      ...hero,
+      raceDisplay: displayName('race', hero.race, currentLang()),
+      classDisplay: displayName('class', hero.heroClass, currentLang()),
+    };
   const need = (value, name) => {
     if (value === undefined || value === '') fail(`Missing ${name}.\n${USAGE}`);
     return value;
@@ -258,7 +287,7 @@ function main() {
           fail(
             'No hero yet. Run: node game/cli.js hero create --name <n> --race <r> --class <c> --scores <six numbers>',
           );
-        out({ ok: true, hero });
+        out({ ok: true, hero: withDisplay(hero) });
       } else if (sub === 'create') {
         arity(rest, 0, 0, 'hero create --name <n> --race <r> --class <c> --scores <six numbers>');
         const saveId = currentSaveId();
@@ -271,7 +300,7 @@ function main() {
           raceDescription: flags['race-desc'],
           classDescription: flags['class-desc'],
         });
-        out({ ok: true, heroId, hero: getHero(db, saveId) });
+        out({ ok: true, heroId, hero: withDisplay(getHero(db, saveId)) });
       } else fail(USAGE);
       break;
     }
@@ -474,11 +503,25 @@ function main() {
       if (sub === 'races') {
         out({
           ok: true,
-          races: Object.entries(STANDARD_RACES).map(([name, bonuses]) => ({ name, bonuses })),
+          races: Object.entries(STANDARD_RACES).map(([name, bonuses]) => ({
+            name,
+            bonuses,
+            display: displayName('race', name, currentLang()),
+            aliases: aliasesFor('race', name, currentLang()),
+          })),
           aliases: ALIASES,
         });
       } else if (sub === 'classes') {
-        out({ ok: true, classes: STANDARD_CLASSES, aliases: ALIASES });
+        out({
+          ok: true,
+          classes: STANDARD_CLASSES,
+          details: STANDARD_CLASSES.map((name) => ({
+            name,
+            display: displayName('class', name, currentLang()),
+            aliases: aliasesFor('class', name, currentLang()),
+          })),
+          aliases: ALIASES,
+        });
       } else if (sub === 'pointbuy') {
         out({ ok: true, budget: POINT_BUY_BUDGET, min: 8, max: 15, costs: POINT_BUY_COSTS, abilities: ABILITIES });
       } else fail(USAGE);
@@ -526,9 +569,7 @@ function main() {
     case 'voice': {
       if (sub !== 'lint') fail(USAGE);
       arity(rest, 1, 1, 'voice lint "<text>"');
-      // Before any save exists the lint runs in English.
-      const save = firstSave();
-      const { ok: clean, hits } = lintVoice(rest[0], save ? effectiveLanguage(db, save.id) : 'en');
+      const { ok: clean, hits } = lintVoice(rest[0], currentLang());
       out({ ok: true, lint: clean, hits });
       break;
     }

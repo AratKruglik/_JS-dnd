@@ -36,7 +36,7 @@ The game has two languages, English and Ukrainian, and the language belongs to t
 
 ## Onboarding
 
-1. Race. Run `node game/cli.js rules races`. Offer a handful as a choice prompt (hobbit means halfling). If the player invents a race, ask three or four short questions (looks, culture, what it is good and bad at), then propose ability bonuses: each from -2 to +2, positives adding up to at most 4. Get the player's clear OK before using them.
+1. Race. Run `node game/cli.js rules races`. Offer a handful as a choice prompt, showing each by its `display` name (hobbit means halfling). Pass the player's own words straight to `hero create`: the scripts understand race and class names and aliases in both languages and store the stable English key. When you talk about the hero later, use `raceDisplay` and `classDisplay` from `hero show`. If the player invents a race, ask three or four short questions (looks, culture, what it is good and bad at), then propose ability bonuses: each from -2 to +2, positives adding up to at most 4. Get the player's clear OK before using them.
 2. Class. Run `node game/cli.js rules classes` and do the same (magician means wizard). A custom class needs a one-line description and has no bonuses.
 3. Scores. Run `node game/cli.js rules pointbuy`. The player has 27 points to spend on six scores from 8 to 15, in the order STR, DEX, CON, INT, WIS, CHA. Explain the costs in plain words and help them spread the points.
 4. Name. Ask for the hero's name as plain text.

@@ -5,7 +5,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import en from '../../game/locales/en.js';
 import uk, { pack as ukPack } from '../../game/locales/uk.js';
-import { pack as enPack } from '../../game/locales/en.js';
+import { pack as enPack, names as enNames } from '../../game/locales/en.js';
+import { names as ukNames } from '../../game/locales/uk.js';
+import { STANDARD_RACES, STANDARD_CLASSES } from '../../game/rules.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -160,5 +162,41 @@ test('no pack string has an em-dash or an en-dash', () => {
   const dashes = [String.fromCharCode(0x2013), String.fromCharCode(0x2014)];
   for (const text of packStrings([enPack, ukPack])) {
     for (const dash of dashes) assert.ok(!text.includes(dash), text);
+  }
+});
+
+test('both languages name every race and class, with a display name and aliases', () => {
+  for (const names of [enNames, ukNames]) {
+    assert.deepEqual(Object.keys(names.races).sort(), Object.keys(STANDARD_RACES).sort());
+    assert.deepEqual(Object.keys(names.classes).sort(), [...STANDARD_CLASSES].sort());
+    for (const entry of [...Object.values(names.races), ...Object.values(names.classes)]) {
+      assert.equal(typeof entry.name, 'string');
+      assert.ok(entry.name.length > 0);
+      assert.ok(Array.isArray(entry.aliases));
+    }
+  }
+});
+
+test('Ukrainian race and class names and aliases are Cyrillic, and English ones are Latin', () => {
+  const all = (names) =>
+    Object.values(names.races)
+      .concat(Object.values(names.classes))
+      .flatMap((e) => [e.name, ...e.aliases]);
+  for (const text of all(ukNames)) assert.doesNotMatch(text, /[A-Za-z]/, text);
+  for (const text of all(enNames)) assert.doesNotMatch(text, /\p{Script=Cyrillic}/u, text);
+});
+
+test('no alias or name points at two different races or two different classes', () => {
+  for (const kind of ['races', 'classes']) {
+    const seen = new Map();
+    for (const names of [enNames, ukNames]) {
+      for (const [key, entry] of Object.entries(names[kind])) {
+        for (const text of [entry.name, ...entry.aliases, key]) {
+          const flat = text.toLowerCase().replace(/\s+/g, ' ').trim();
+          assert.ok(!seen.has(flat) || seen.get(flat) === key, `"${flat}" names both ${seen.get(flat)} and ${key}`);
+          seen.set(flat, key);
+        }
+      }
+    }
   }
 });
