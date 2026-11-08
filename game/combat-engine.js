@@ -23,7 +23,7 @@ export function warnNpc(db, saveId, npcSlot, reason = null) {
   });
 }
 
-const openFight = (db, saveId) =>
+export const openFight = (db, saveId) =>
   db
     .prepare('SELECT * FROM fights WHERE save_id = ? AND ended_at IS NULL AND enemy_hp IS NOT NULL ORDER BY id DESC LIMIT 1')
     .get(saveId);
@@ -159,13 +159,29 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
       return stateOf(db, fight.id, { honor });
     }
 
-    const current = db.prepare('SELECT * FROM fights WHERE id = ?').get(fight.id);
-    if (enemyTurn(db, saveId, current, hero, rng)) {
-      finishLoss(db, current);
-    } else {
-      db.prepare('UPDATE fights SET round = round + 1 WHERE id = ?').run(fight.id);
-    }
-    return stateOf(db, fight.id);
+    return enemyResponds(db, saveId, fight.id, hero, rng);
+  });
+}
+
+// The enemy's answer after the hero's turn: either the hero is knocked out, or a new round starts.
+function enemyResponds(db, saveId, fightId, hero, rng) {
+  const current = db.prepare('SELECT * FROM fights WHERE id = ?').get(fightId);
+  if (enemyTurn(db, saveId, current, hero, rng)) {
+    finishLoss(db, current);
+  } else {
+    db.prepare('UPDATE fights SET round = round + 1 WHERE id = ?').run(fightId);
+  }
+  return stateOf(db, fightId);
+}
+
+// A failed advanced move: the hero does nothing this turn, the enemy still acts.
+export function loseHeroTurn(db, saveId, { rng } = {}) {
+  const fight = openFight(db, saveId);
+  if (!fight) throw new Error('No fight in progress.');
+  const hero = getHero(db, saveId);
+  return inTransaction(db, () => {
+    logFightStep(db, fight.id, { actor: 'hero', action: 'move', detail: 'the move fails and the turn is lost' });
+    return enemyResponds(db, saveId, fight.id, hero, rng);
   });
 }
 

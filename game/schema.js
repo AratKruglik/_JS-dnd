@@ -191,4 +191,20 @@ CREATE TABLE npc_warnings (
 );
 `,
   },
+  {
+    // Advanced combat moves: a Master-written JS problem whose tests stay hidden from the player.
+    version: 7,
+    sql: `
+CREATE TABLE fight_moves (
+  id INTEGER PRIMARY KEY,
+  fight_id INTEGER NOT NULL REFERENCES fights (id),
+  created_at TEXT NOT NULL,
+  title TEXT NOT NULL,
+  brief TEXT NOT NULL,
+  difficulty INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
+  tests TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('open', 'won', 'failed'))
+);
+`,
+  },
 ];
