@@ -4,7 +4,7 @@ import { inTransaction } from './db.js';
 import { openFight, heroAttack, loseHeroTurn } from './combat-engine.js';
 import { runMoveTests, validateMoveProblem } from './move-runner.js';
 import { defaultPlayerDir } from './quests.js';
-import { effectiveLanguage } from './i18n.js';
+import { effectiveLanguage, t } from './i18n.js';
 
 const now = () => new Date().toISOString();
 const comment = (text) =>
@@ -54,11 +54,12 @@ export function proposeMove(db, saveId, problem, { playerDir = defaultPlayerDir(
         ).lastInsertRowid,
     );
     mkdirSync(playerDir, { recursive: true });
+    const lang = effectiveLanguage(db, saveId);
     const file = join(playerDir, `move-${moveId}.js`);
     const temp = `${file}.tmp`;
     writeFileSync(
       temp,
-      `${comment(`Combat move: ${problem.title.trim()}`)}\n${comment(problem.brief.trim())}\n// Export a function named solve.\nexport function solve() {\n  // your code here\n}\n`,
+      `${comment(t(lang, 'move.stub.title', { title: problem.title.trim() }))}\n${comment(problem.brief.trim())}\n${comment(t(lang, 'move.stub.export'))}\nexport function solve() {\n  ${comment(t(lang, 'move.stub.code'))}\n}\n`,
     );
     if (existsSync(file)) renameSync(file, join(playerDir, `move-${moveId}.old.js`));
     renameSync(temp, file);

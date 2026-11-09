@@ -327,3 +327,34 @@ test('a missing style tool is reported in the language', () => {
     /Інструменти стилю не встановлено/,
   );
 });
+
+// ---- values that do not survive JSON (undefined, NaN) must still be shown, as they always were
+test('a solution that returns undefined or NaN shows that value, never a raw placeholder or null', () => {
+  const stubs = {
+    'dice-roll': ['export function rollDie() {}', 'export function rollDie() { return NaN; }'],
+    'string-shout': ['export function shout() {}'],
+    'array-sum': ['export function sumEven() {}', 'export function sumEven() { return NaN; }'],
+  };
+  for (const [id, codes] of Object.entries(stubs)) {
+    for (const code of codes) {
+      const shown = code.includes('NaN') ? 'NaN' : 'undefined';
+      for (const lang of ['en', 'uk']) {
+        const result = check(id, code, lang);
+        assert.equal(result.status, 'fail', `${id} ${lang}`);
+        assert.ok(result.got.includes(shown), `${id} ${lang}: ${result.got}`);
+        assert.ok(!/[{}]/.test(result.got + result.expected + result.message), `${id} ${lang}: ${result.got}`);
+        assert.ok(!result.got.includes('null'), `${id} ${lang}: ${result.got}`);
+      }
+    }
+  }
+});
+
+test('a solution that returns undefined for the range check shows undefined too', () => {
+  const result = check(
+    'dice-roll',
+    'export function rollDie(sides, rng) { return rng() === 0 ? 1 : undefined; }',
+    'en',
+  );
+  assert.equal(result.status, 'fail');
+  assert.ok(!/[{}]|null/.test(result.got), result.got);
+});

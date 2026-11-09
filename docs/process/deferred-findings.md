@@ -112,3 +112,20 @@ Legend for status: **open** means still true in the code, **fixed** means a late
 - Legacy `fight end` and `fight log` could close or write to a combat fight: fixed with `assertLegacyFight`.
 - Spec 5.10 stale against the ending decisions: updated.
 - Page tests did not pin the legacy-vs-boss unlock, the outcome filter, or a cross-save boss win: added in the Plan 7 fix pass.
+
+## Found by the final review of the multi-language plan, 2026-11-09
+
+- Fixed: a quest check that returned `undefined` or `NaN` showed a raw `{gave}` placeholder or `null`, because the check parts cross the child process as JSON. `quests/messages.js` now turns those values into text first.
+- Fixed: the combat move starter file was always English. It is now written from the catalogs in the save language, and `game/moves.js` is on the lint guard list.
+- Fixed: the integration tests never ran the translator strictly. `tests/game/helpers.js` now sets `JSDND_I18N_STRICT=1`, which spawned CLI processes inherit.
+- Deferred minors:
+  - The lint guard's `PROSE` pattern skips any string containing `{ } < > = ;`, so a catalog string pasted back inline with a placeholder passes, and so does prose inside markup in `game/ending-page.js`.
+  - `game/cli-main.js` collapse line: the fallback location text ("the spot where they stood") is English in a Ukrainian save.
+  - `.claude/commands/play.md` tells the Master to build the collapse message from the English line, not the localized `error` field.
+  - `game/ending-page.js` honor tooltips use the stored English `reason`.
+  - `game/statusline.js` on a database without migration 12: `effectiveLanguage` throws, the reading is not stored until a CLI command migrates.
+  - `game/i18n.js`: a plural entry with a non-finite or string count returns `other` with the placeholders unfilled (strict mode throws).
+  - `game/locales/uk.js`: the banned phrases `на завершення` and `зануримося в` are everyday Ukrainian and reject normal world text. The class and race aliases have no feminine forms (`чарівниця`, `жриця`, `ельфійка`). Both are Gogi's call in the language review.
+  - `setup.sh`: re-running setup and pressing Enter saves English over an existing Ukrainian save, and `ua` is read as English.
+  - `README.md` repo layout row for `quests/` still says briefs and stubs, which moved to `quests/text/`. `CLAUDE.md` says no player-facing string is inline, which `game/cli-main.js` error text still breaks by decision.
+  - Not judged: a Node build without Ukrainian ICU after `uk` is chosen in `/play`, and whether the banned phrase `як ші` causes false positives.

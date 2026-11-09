@@ -4,6 +4,11 @@
 export default {
   'language.changed': 'Мову змінено на {name}.',
 
+  // Стартовий файл бойового прийому.
+  'move.stub.title': 'Бойовий прийом: {title}',
+  'move.stub.export': 'Експортуй функцію з назвою `solve`.',
+  'move.stub.code': 'твій код тут',
+
   // Що каже перевірка завдання. {call} це код і лишається як є.
   'check.timeout.message': 'Твій код працював довше за {seconds} с і був зупинений.',
   'check.tooMuchOutput.message': 'Твій код вивів забагато тексту.',

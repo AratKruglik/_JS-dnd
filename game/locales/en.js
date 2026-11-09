@@ -3,6 +3,11 @@
 export default {
   'language.changed': 'The language is now {name}.',
 
+  // The starter file of a combat move.
+  'move.stub.title': 'Combat move: {title}',
+  'move.stub.export': 'Export a function named solve.',
+  'move.stub.code': 'your code here',
+
   // What a quest check says. {call} is code and stays as written. The English wording is exactly what
   // the game printed before there were two languages.
   'check.timeout.message': 'Your code ran longer than {seconds} seconds and was stopped.',

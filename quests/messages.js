@@ -3,22 +3,35 @@
 // text are already plain strings, so code stays exactly as written.
 export const part = (key, params = {}) => ({ key, params });
 
+// What the player's code returned, as text. The parts travel as JSON, which drops undefined and turns NaN
+// into null, so the value is turned into text here, the way a template string would show it.
+const shown = (value) => {
+  try {
+    return String(value);
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
+};
+
 export const missingExport = (name, type) => ({
   pass: false,
   expected: part('check.missingExport.expected', { name }),
   got: part('check.missingExport.got', { name, type }),
 });
 
-export const wrongResult = (call, wanted, gave) => ({
-  pass: false,
-  expected: part('check.wrongResult.expected', { call, wanted, gave }),
-  got: part('check.wrongResult.got', { call, wanted, gave }),
-});
+export const wrongResult = (call, wanted, gave) => {
+  const params = { call, wanted: shown(wanted), gave: shown(gave) };
+  return {
+    pass: false,
+    expected: part('check.wrongResult.expected', params),
+    got: part('check.wrongResult.got', params),
+  };
+};
 
 export const outOfRange = (call, max, gave) => ({
   pass: false,
-  expected: part('check.outOfRange.expected', { call, max }),
-  got: part('check.outOfRange.got', { call, gave }),
+  expected: part('check.outOfRange.expected', { call, max: shown(max) }),
+  got: part('check.outOfRange.got', { call, gave: shown(gave) }),
 });
 
 export const allFacesMissing = (faces) => ({

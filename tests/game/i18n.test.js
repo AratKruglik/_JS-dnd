@@ -37,6 +37,17 @@ const withStrict = (fn) => {
   }
 };
 
+// The player's behavior: no strict mode, a leak is shown and never a crash.
+const withLenient = (fn) => {
+  const before = process.env.JSDND_I18N_STRICT;
+  delete process.env.JSDND_I18N_STRICT;
+  try {
+    fn();
+  } finally {
+    if (before !== undefined) process.env.JSDND_I18N_STRICT = before;
+  }
+};
+
 test('the languages are English and Ukrainian, English is the default, and both have a name', () => {
   assert.deepEqual(LANGUAGES, ['en', 'uk']);
   assert.equal(DEFAULT_LANGUAGE, 'en');
@@ -68,19 +79,23 @@ test('plural entries follow the rules of the language for 1, 2, 5, 11, 12, 21, 2
 });
 
 test('a missing key falls back to English and tells the handler, so a test can see it', () => {
-  const { t, setMissingHandler } = createTranslator(catalogs);
-  const seen = [];
-  setMissingHandler((miss) => seen.push(miss));
-  assert.equal(t('uk', 'onlyEnglish'), 'Only in English');
-  assert.deepEqual(seen, [{ lang: 'uk', key: 'onlyEnglish' }]);
-  assert.equal(t('uk', 'nowhere'), 'nowhere');
-  setMissingHandler(null);
-  assert.doesNotThrow(() => t('uk', 'onlyEnglish'));
+  withLenient(() => {
+    const { t, setMissingHandler } = createTranslator(catalogs);
+    const seen = [];
+    setMissingHandler((miss) => seen.push(miss));
+    assert.equal(t('uk', 'onlyEnglish'), 'Only in English');
+    assert.deepEqual(seen, [{ lang: 'uk', key: 'onlyEnglish' }]);
+    assert.equal(t('uk', 'nowhere'), 'nowhere');
+    setMissingHandler(null);
+    assert.doesNotThrow(() => t('uk', 'onlyEnglish'));
+  });
 });
 
 test('a placeholder with no value is left visible for the player, never a crash', () => {
-  const { t } = createTranslator(catalogs);
-  assert.equal(t('en', 'hello'), 'Hello, {name}!');
+  withLenient(() => {
+    const { t } = createTranslator(catalogs);
+    assert.equal(t('en', 'hello'), 'Hello, {name}!');
+  });
 });
 
 test('strict mode throws on a missing key and on a missing placeholder', () => {
@@ -118,4 +133,9 @@ test('a bad language code or a missing save is rejected and nothing changes', ()
   assert.throws(() => setLanguage(db, 999, 'uk'), /no save/i);
   assert.equal(getLanguage(db, saveId), null);
   assert.throws(() => db.prepare("UPDATE saves SET language = 'de' WHERE id = ?").run(saveId), /constraint/i);
+});
+
+test('the integration tests run the translator strictly, so a missing key or placeholder fails them', async () => {
+  await import('./helpers.js');
+  assert.equal(process.env.JSDND_I18N_STRICT, '1');
 });

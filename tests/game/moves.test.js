@@ -7,6 +7,7 @@ import { proposeMove, checkMove } from '../../game/moves.js';
 import { beginFight } from '../../game/combat-engine.js';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
+import { setLanguage } from '../../game/i18n.js';
 import { freshDb, count } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
@@ -154,4 +155,29 @@ test('a file the player already has for the move is kept as .old.js, not overwri
   assert.equal(readFileSync(join(playerDir, 'move-1.old.js'), 'utf8'), '// my own work\n');
   assert.match(readFileSync(move.file, 'utf8'), /export function solve/);
   assert.equal(existsSync(`${move.file}.tmp`), false);
+});
+
+test('the move stub is written in the language of the save, with the code part unchanged', () => {
+  const english = inFight();
+  english.start();
+  const en = readFileSync(
+    proposeMove(english.db, english.saveId, problem(), { playerDir: english.playerDir }).file,
+    'utf8',
+  );
+  assert.match(en, /^\/\/ Combat move: Add two numbers\n/);
+  assert.match(en, /\/\/ Export a function named solve\./);
+  assert.match(en, /\/\/ your code here/);
+
+  const ukrainian = inFight();
+  setLanguage(ukrainian.db, ukrainian.saveId, 'uk');
+  ukrainian.start();
+  const uk = readFileSync(
+    proposeMove(ukrainian.db, ukrainian.saveId, problem(), { playerDir: ukrainian.playerDir }).file,
+    'utf8',
+  );
+  assert.match(uk, /^\/\/ Бойовий прийом: Add two numbers\n/);
+  assert.match(uk, /\/\/ Експортуй функцію з назвою `solve`\./);
+  assert.match(uk, /\/\/ твій код тут/);
+  assert.doesNotMatch(uk, /Combat move|Export a function|your code here/);
+  assert.match(uk, /export function solve\(\) \{/);
 });
