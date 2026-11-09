@@ -30,9 +30,10 @@ import { proposeMove, checkMove } from './moves.js';
 import { SKELETON } from '../world/skeleton.js';
 import { touchWindow, currentStamina } from './stamina.js';
 import { buildEnding } from './ending.js';
+import { resumeState } from './resume.js';
 
 const USAGE = `Commands:
-  init
+  init | resume
   rules races | rules classes | rules pointbuy
   hero create --name <n> --race <r> --class <c> --scores <6 numbers like 15,14,13,12,10,8>
               [--bonuses STR=2,DEX=1] [--race-desc "<t>"] [--class-desc "<t>"]
@@ -87,8 +88,17 @@ const BLOCKED_WHEN_COLLAPSED = new Set([
 // One line of compact JSON per answer keeps token use low for the Master.
 const out = (value) => console.log(JSON.stringify(value));
 
+// The /play skill runs `resume` before Claude sees the prompt, and a failing command there aborts
+// the whole skill. So `resume` reports every failure on stdout and exits 0.
+const RESUMING = process.argv[2] === 'resume';
+
 function fail(message, code = 1) {
-  console.error(JSON.stringify({ ok: false, error: message }));
+  const text = JSON.stringify({ ok: false, error: message });
+  if (RESUMING) {
+    console.log(text);
+    process.exit(0);
+  }
+  console.error(text);
   process.exit(code);
 }
 
@@ -217,7 +227,7 @@ function main() {
       reset,
       message: 'The dice were tampered with. Restore game/dice.js and game/rolls.js to continue.',
     });
-    process.exit(2);
+    process.exit(RESUMING ? 0 : 2);
   }
 
   const db = openGameDb();
@@ -260,6 +270,12 @@ function main() {
     case 'init': {
       const saveId = firstSave()?.id ?? createSave(db, { name: 'Save 1' });
       out({ ok: true, saveId });
+      break;
+    }
+    case 'resume': {
+      arity(positionals.slice(1), 0, 0, 'resume');
+      const saveId = firstSave()?.id ?? createSave(db, { name: 'Save 1' });
+      out({ ok: true, saveId, ...resumeState(db, saveId) });
       break;
     }
     case 'hero': {

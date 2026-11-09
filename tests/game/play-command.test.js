@@ -6,18 +6,29 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const play = readFileSync(join(root, '.claude', 'commands', 'play.md'), 'utf8');
+const skillDir = join(root, '.claude', 'skills', 'play');
+const part = (name) => readFileSync(join(skillDir, name), 'utf8');
+const skill = part('SKILL.md');
+const onboardingFile = part('onboarding.md');
+const combatFile = part('combat.md');
+const play = [skill, onboardingFile, combatFile, part('stamina.md'), part('ending.md')].join('\n');
 const claudeMd = readFileSync(join(root, 'CLAUDE.md'), 'utf8');
 
-test('play.md has a description header for the slash command', () => {
-  assert.match(play, /^---\ndescription: .+\n---\n/);
+test('the play skill has a header, only runs when the player types /play, and loads the state up front', () => {
+  assert.match(skill, /^---\nname: play\ndescription: .+\n/);
+  assert.match(skill, /\ndisable-model-invocation: true\n/);
+  assert.match(skill, /\nallowed-tools: Bash\(node game\/cli\.js \*\)\n/);
+  assert.ok(skill.includes('!`node game/cli.js resume`'));
+});
+
+test('the play skill points to every reference file it splits out', () => {
+  for (const name of ['onboarding.md', 'combat.md', 'stamina.md', 'ending.md']) {
+    assert.ok(skill.includes(`.claude/skills/play/${name}`), `SKILL.md never points to ${name}`);
+  }
 });
 
 test('play.md walks onboarding in order and ends by looking around', () => {
-  const start = play.indexOf('## Onboarding');
-  const end = play.indexOf('## Playing');
-  assert.ok(start >= 0 && end > start, 'Onboarding and Playing sections are missing');
-  const onboarding = play.slice(start, end);
+  const onboarding = onboardingFile;
   const steps = [
     'node game/cli.js rules races',
     'node game/cli.js rules classes',
@@ -66,7 +77,7 @@ test('every "node game/cli.js <command>" in play.md exists in the CLI usage', ()
     assert.ok(usage.includes(phrase), `play.md uses "${phrase}" but the CLI usage does not list it`);
   }
   for (const required of [
-    'init',
+    'resume',
     'look',
     'go',
     'talk',
@@ -100,9 +111,10 @@ test('CLAUDE.md points playing to /play and developing to the rest', () => {
 });
 
 test('play.md recalls the setting on resume and skips steps that are already done', () => {
-  assert.match(play, /node game\/cli\.js world show/);
-  assert.match(play, /skip any step that is already done/i);
-  assert.match(play, /replaces the hero/i);
+  assert.match(skill, /recall the world from `setting`/);
+  assert.match(skill, /skip any step that is already done/i);
+  assert.match(onboardingFile, /skip any step that is already done/i);
+  assert.match(onboardingFile, /replaces the hero/i);
 });
 
 test('play.md sends the world on stdin as a heredoc so apostrophes are safe', () => {
@@ -137,19 +149,19 @@ test('play.md teaches warnings, tiers, the fight loop, and advanced moves', () =
 });
 
 test('play.md has a subagent write the move problem so the tests and answer stay off the Master screen', () => {
-  const combat = play.slice(play.indexOf('## Combat'));
+  const combat = combatFile;
   assert.match(combat, /subagent/i);
   assert.match(combat, /never (write|send|show|type)[^.]*(tests|reference)/i);
 });
 
 test('play.md makes the Master judge a passed move file and log cheating', () => {
-  const combat = play.slice(play.indexOf('## Combat'));
+  const combat = combatFile;
   assert.match(combat, /player\/move-<moveId>\.js/);
   assert.ok(combat.includes('node game/cli.js honor event cheat'));
 });
 
 test('play.md says a beaten NPC is knocked out and warnings reset when a fight ends', () => {
-  const combat = play.slice(play.indexOf('## Combat'));
+  const combat = combatFile;
   assert.match(combat, /knocked out/i);
   assert.match(combat, /solves another quest/i);
   assert.match(combat, /warnings (are cleared|reset|start over)/i);

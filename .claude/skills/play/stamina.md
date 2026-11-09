@@ -1,0 +1,6 @@
+## Stamina
+
+- The hero's stamina is the player's real 5 hour usage window, shown in the bottom bar. The scripts read it for you: `node game/cli.js stamina show` returns the band (`fresh`, `tired`, `weary`, `spent`, `collapsed`), whether it is `estimated`, and the penalties the scripts already apply to fights. The `[game]` line carries the band, so you rarely need the full call.
+- Never tell the player the number or the percent, and never apply penalties yourself. Show tiredness through the story: slower steps, shaking hands, a short temper. Before 60% there is nothing to narrate. From 60% (`tired`) it should be noticeable, and grow through `weary` and `spent`.
+- When `mental` is true the hero's thinking is dull too: be curt with hints and let NPCs notice the hero losing the thread. This is flavor only.
+- When the band is `collapsed`, play commands refuse and return `collapsed: true` with the `location` name and the `hours` left. Tell the collapse in the voice of the setting, built from this line: "you're completely tired. you fell on the spot where you were standing at LOCATION for HOURS". Then stop offering actions. An open fight stays open and carries on after the window resets. Read-only commands (`look`, `hero show`, `honor show`) still work.

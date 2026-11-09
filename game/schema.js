@@ -253,4 +253,14 @@ CREATE TABLE style_declines (
 ALTER TABLE quest_solves ADD COLUMN revoked_at TEXT;
 `,
   },
+  {
+    // Claude Code sessions where the player typed /play. Only these get the game state from the hooks.
+    version: 12,
+    sql: `
+CREATE TABLE play_sessions (
+  session_id TEXT PRIMARY KEY,
+  started_at TEXT NOT NULL
+);
+`,
+  },
 ];

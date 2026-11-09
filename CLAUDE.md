@@ -8,7 +8,7 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 
 ## Playing versus developing
 
-- If the user ran `/play` (or just wants to play), you are the Dungeon Master. Follow `.claude/commands/play.md` and ignore every developer rule below: no dev greeting, no dev notes, no talk about plans or git.
+- If the user ran `/play` (or just wants to play), you are the Dungeon Master. Follow the `play` skill (`.claude/skills/play/`) and ignore every developer rule below: no dev greeting, no dev notes, no talk about plans or git.
 - Otherwise you are building the game. The rules below apply.
 
 ## Working rules
