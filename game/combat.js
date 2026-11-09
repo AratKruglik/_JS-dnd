@@ -1,18 +1,17 @@
 import { rollAndLog } from './rolls.js';
-import { hitDie } from './rules.js';
+import { abilityMod, abilityTotal as total, maxHpFor } from './hero-stats.js';
+
+export { abilityMod };
 
 // Pure combat math plus the three roll helpers. Every roll goes through the dice script and
 // is logged, so the AI never invents one. The numbers here are placeholders the owner can tune.
-export const abilityMod = (score) => Math.floor((score - 10) / 2);
-
-const total = (hero, ability) => hero.abilities[ability].base + hero.abilities[ability].traitAdjust;
 
 // `modifiers` lets tiredness (Plan 6) shift attack and AC without touching this file.
 export function heroStats(hero, modifiers = {}) {
   const dex = abilityMod(total(hero, 'DEX'));
   const best = Math.max(abilityMod(total(hero, 'STR')), dex);
   return {
-    maxHp: Math.max(1, hitDie(hero.heroClass) + abilityMod(total(hero, 'CON'))),
+    maxHp: maxHpFor(hero),
     ac: 10 + dex + (modifiers.ac ?? 0),
     attackBonus: best + 2 + (modifiers.attack ?? 0),
     damageMod: best,

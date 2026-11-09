@@ -9,6 +9,7 @@ import { SKELETON } from '../world/skeleton.js';
 import { knockOut, requireAwake } from './knockouts.js';
 import { getProgress } from './quests.js';
 import { BOSS_SLOT, endingStatus } from './ending.js';
+import { syncHp, setHp, fullHeal } from './vitals.js';
 
 const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
@@ -73,6 +74,8 @@ function enemyTurn(db, saveId, fight, hero, rng, modifiers) {
     });
   }
   db.prepare('UPDATE fights SET hero_hp = ? WHERE id = ?').run(heroHp, fight.id);
+  // The hero's health outlives the fight, so every hit is written to the hero too.
+  setHp(db, saveId, heroHp);
   return heroHp === 0;
 }
 
@@ -84,6 +87,8 @@ function finishLoss(db, fight) {
   endFight(db, fight.id, 'lost');
   clearWarnings(db, fight);
   db.prepare('UPDATE heroes SET location_slot = ? WHERE save_id = ?').run(SKELETON.start, fight.save_id);
+  // Waking at the start comes with full health.
+  fullHeal(db, fight.save_id);
 }
 
 export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = null, rng, modifiers } = {}) {
@@ -129,15 +134,16 @@ export function beginFight(db, saveId, { npcSlot, tier, aggressor, questId = nul
     }
 
     const npc = db.prepare('SELECT name FROM world_npcs WHERE save_id = ? AND slot = ?').get(saveId, slot);
-    const stats = heroStats(hero);
     const enemy = ENEMY_TIERS[tier];
+    // The fight starts from the health the hero has now, after any regeneration.
+    const { hp: startHp, maxHp } = syncHp(db, saveId);
     const fightId = startFight(db, saveId, {
       triggerReason: `${aggressor === 'hero' ? 'hero attacked' : 'provoked'} ${npc.name}`,
     });
     db.prepare(
       `UPDATE fights SET aggressor = ?, npc_slot = ?, quest_id = ?, enemy_name = ?, enemy_tier = ?, enemy_hp = ?,
          enemy_hp_max = ?, enemy_ac = ?, hero_hp = ?, hero_hp_max = ? WHERE id = ?`,
-    ).run(aggressor, slot, questId, npc.name, tier, enemy.hp, enemy.hp, enemy.ac, stats.maxHp, stats.maxHp, fightId);
+    ).run(aggressor, slot, questId, npc.name, tier, enemy.hp, enemy.hp, enemy.ac, startHp, maxHp, fightId);
 
     const dexMod = abilityMod(hero.abilities.DEX.base + hero.abilities.DEX.traitAdjust);
     const heroInit = initiativeRoll(db, saveId, dexMod, rng, 'hero initiative');
@@ -190,6 +196,7 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
 
     if (enemyHp === 0) {
       endFight(db, fight.id, 'won');
+      setHp(db, saveId, fight.hero_hp);
       knockOut(db, saveId, fight.npc_slot);
       clearWarnings(db, fight);
       const kind = fight.aggressor === 'npc' ? 'kill_self_defense' : 'kill_unprovoked';
@@ -231,6 +238,7 @@ export function fleeFight(db, saveId) {
     if (!fight) throw new Error('No fight in progress.');
     logFightStep(db, fight.id, { actor: 'hero', action: 'flee', detail: 'the hero runs' });
     endFight(db, fight.id, 'fled');
+    setHp(db, saveId, fight.hero_hp);
     clearWarnings(db, fight);
     return stateOf(db, fight.id);
   });

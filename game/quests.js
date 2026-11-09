@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { inTransaction } from './db.js';
 import { addHonorEvent, getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
+import { healForSolve } from './vitals.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
 import { questText, generalStyle } from '../quests/text/index.js';
@@ -188,6 +189,7 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       hints === 0 ? 'clean_solve_no_hints' : 'clean_solve',
       `solved ${quest.id}`,
     );
+    healForSolve(db, saveId);
     return { solved: true, honor };
   });
 }
