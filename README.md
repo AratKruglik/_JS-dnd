@@ -86,6 +86,7 @@ You need Node.js with `node:sqlite` support (Node 25.8.1 is what this was built 
 
 ```bash
 bash setup.sh        # checks Node and node:sqlite, creates the game DB in data/
+bash play.sh         # starts Claude Code on Sonnet and runs /play
 node --test          # runs the test suite
 npm run lint         # ESLint
 npm run format       # Prettier, writes the fixes
