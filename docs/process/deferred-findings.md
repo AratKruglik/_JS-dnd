@@ -139,3 +139,17 @@ Legend for status: **open** means still true in the code, **fixed** means a late
   - Test gaps: "revoking a solve that gave no item" actually solves through `judgeQuest`, and the tamper reset with `fullHeal` is not run end to end under a missing dice file (checked by hand, works).
 - Gogi's call: gold and items survive a tamper reset, so re-solving in the new epoch pays again.
 - Not judged: an unparseable `hp_updated_at` makes `syncHp` throw (hand-edited DB only), up to 29 leftover regeneration minutes are lost per fight by design, `hero show` reads the hero and vitals in separate statements.
+
+## Play harness follow-up (PR #14), 2026-11-09
+
+- Fixed: the play hook and the resume state no longer import the sealed dice files (`game/fight-state.js`), so a missing or broken `dice.js` or `rolls.js` cannot crash the hook.
+- Fixed: `resumeState` is the one source for the `resume` command, the compaction dump, and the `[game]` line, and now carries language, pack, vitals, and display names. The line shows health and gold.
+- Fixed: the auto-approval of game commands moved from the committed settings to `play.sh` (`--allowedTools`, this launch only). `play.sh` warns below Claude Code 2.1.271.
+- Added: `world-smith` (Opus) writes the world, with the Master writing it as the fallback.
+- Ruling: the contributor's `pause(2)` in the ending test stays. The test passed 10 of 10 runs with it and 20 of 20 without it, so the flake was not reproduced, but the pause costs nothing and guarantees the boss win lands strictly after the last solve.
+- Unchecked until a live run: that `claude "/play" --model sonnet --allowedTools "..."` parses `/play` as the prompt and the tool rule as one value, that the model of a `world-smith` run is Opus, and that the compaction line survives a real long session.
+- Deferred minors:
+  - `play.sh` messages are English only: the save language is not known before the game starts.
+  - `RESUMING` is checked in both `game/cli.js` and `game/cli-main.js`. Two copies of the same rule.
+  - A hook failure still shows Claude Code's own non-blocking hook error if Node itself cannot start. Nothing in the repo can change that.
+  - `omitClaudeMd` is ignored by Claude Code older than 2.1.271, so `move-smith` and `world-smith` then load CLAUDE.md and cost more. The game still works.

@@ -81,3 +81,12 @@ test('the README tells players about the hero line, health, gold, and items, and
   assert.match(scripts, /node game\/cli\.js item list/);
   assert.ok(readme.includes('Hero line and vitals'), 'the feature table has no row for the hero line');
 });
+
+test('How to play states the Claude Code version, play.sh, and which model does what', () => {
+  const play = readme.slice(at('\n## How to play'), at('\n## Tech stack'));
+  assert.match(play, /2\.1\.271/);
+  assert.match(play, /bash play\.sh/);
+  assert.match(play, /Sonnet/);
+  assert.match(play, /Opus/);
+  assert.match(play, /this launch only/i);
+});

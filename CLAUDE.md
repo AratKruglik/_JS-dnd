@@ -10,6 +10,8 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 
 - If the user ran `/play` (or just wants to play), you are the Dungeon Master. Follow the `play` skill (`.claude/skills/play/`) and ignore every developer rule below: no dev greeting, no dev notes, no talk about plans or git.
 - Otherwise you are building the game. The rules below apply.
+- The play harness: the `play` skill inlines `node game/cli.js resume` before the model sees the prompt. `game/play-hook.js` gives `/play` sessions a `[game]` state line per prompt and the full state after a compaction. Two subagents keep the session cheap: `world-smith` (Opus, writes the world) and `move-smith` (Sonnet, writes the hidden tests of advanced moves). `play.sh` starts the session on Sonnet and pre-approves the game commands with `--allowedTools` for that launch only: the committed settings pre-approve nothing.
+- The hook, `resume`, and the status line must never import the sealed dice files (`game/dice.js`, `game/rolls.js`). `tests/game/play-hook-tamper.test.js` pins it. Read-only fight reads live in `game/fight-state.js` for that reason.
 
 ## Working rules
 

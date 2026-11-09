@@ -8,10 +8,10 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 
 ## How to play
 
-**You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
+**You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) 2.1.271 or later (the version this was built and tested on) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
 
 1. Clone the repo and run `bash setup.sh` once. It checks Node, installs the code style tools with npm, asks once whether you want to play in English or Ukrainian, and creates your local save.
-2. Open the folder in Claude Code and type `/play`.
+2. Open the folder in Claude Code and type `/play`, or run `bash play.sh`, which starts Claude Code on Sonnet (cheaper per turn), approves the game commands for this launch only, and runs `/play` for you. The world itself is written once, at the start, by a stronger model (Opus).
 3. Build your hero: pick a race and a class (custom ones allowed), name them, and spend your points on abilities.
 4. The Master offers a few settings, from medieval to cyberpunk to Mad Max to a book or film world. Pick one, customize it, or write your own.
 5. The Master builds your world. Everyone gets the same number of places, people, and quests. The setting and the story are yours alone.
@@ -101,7 +101,7 @@ Each plan has an epic issue on the board: [Plan 2](https://github.com/yamnyk/_JS
 
 ```bash
 bash setup.sh        # checks Node and node:sqlite, creates the game DB in data/
-bash play.sh         # starts Claude Code on Sonnet and runs /play
+bash play.sh         # starts Claude Code on Sonnet, approves the game commands for this launch only, runs /play
 node --test          # runs the test suite
 npm run lint         # ESLint
 npm run format       # Prettier, writes the fixes

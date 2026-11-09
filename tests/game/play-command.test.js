@@ -372,3 +372,9 @@ test('the skill chains log calls with a semicolon, never with &&, and reads both
 test('move-smith keeps skipping CLAUDE.md', () => {
   assert.match(agentFile('move-smith.md'), /^omitClaudeMd: true$/m);
 });
+
+test('CLAUDE.md names the skill, both agents, the hook, and how the game commands get approved', () => {
+  for (const word of ['world-smith', 'move-smith', 'game/play-hook.js', '--allowedTools', 'play-hook-tamper']) {
+    assert.ok(claudeMd.includes(word), `CLAUDE.md never mentions ${word}`);
+  }
+});

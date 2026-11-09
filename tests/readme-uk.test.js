@@ -74,3 +74,11 @@ test('the Ukrainian README tells about the hero line, health, gold, and items', 
   assert.match(uk, /Смуга внизу показує/);
   for (const word of ['здоровʼя', 'золото', 'предмет']) assert.ok(uk.includes(word), word);
 });
+
+test('the Ukrainian README states the Claude Code version and tells about play.sh and the models', () => {
+  const uk = read('README.uk.md');
+  assert.match(uk, /2\.1\.271/);
+  assert.match(uk, /bash play\.sh/);
+  assert.match(uk, /Sonnet/);
+  assert.match(uk, /Opus/);
+});
