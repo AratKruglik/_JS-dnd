@@ -10,6 +10,7 @@ import { knockOut, requireAwake } from './knockouts.js';
 import { getProgress } from './quests.js';
 import { BOSS_SLOT, endingStatus } from './ending.js';
 import { syncHp, setHp, fullHeal } from './vitals.js';
+import { grantItem } from './inventory.js';
 
 const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
@@ -197,6 +198,7 @@ export function heroAttack(db, saveId, { rng, sureHit = false, doubleDamage = fa
     if (enemyHp === 0) {
       endFight(db, fight.id, 'won');
       setHp(db, saveId, fight.hero_hp);
+      grantItem(db, saveId, { source: 'fight', fightId: fight.id });
       knockOut(db, saveId, fight.npc_slot);
       clearWarnings(db, fight);
       const kind = fight.aggressor === 'npc' ? 'kill_self_defense' : 'kill_unprovoked';

@@ -51,6 +51,8 @@ import {
   t,
 } from './i18n.js';
 import { buildEnding } from './ending.js';
+import { readVitals, restHero } from './vitals.js';
+import { listItems, countItems, nameItem } from './inventory.js';
 
 const USAGE = `Commands:
   init
@@ -77,6 +79,7 @@ const USAGE = `Commands:
   quest hint <id> <npc_speech|legal_doc|illegal_doc|master_leak> ["<note>"]
   link check <url> | link use <questId> <url>
   stamina show
+  rest | item list | item name <id> "<name>"
   lang show | lang set <en|uk>
   integrity check`;
 
@@ -104,6 +107,8 @@ const BLOCKED_WHEN_COLLAPSED = new Set([
   'quest style-decline',
   'quest revoke',
   'link use',
+  'rest',
+  'item name',
 ]);
 
 // One line of compact JSON per answer keeps token use low for the Master.
@@ -232,7 +237,7 @@ function main() {
   if (save) touchWindow(db, save.id);
   const stamina = save ? currentStamina(db, save.id) : null;
   const tiredness = stamina ? { attack: stamina.attack, ac: stamina.ac } : undefined;
-  const actionKey = ['go', 'talk', 'roll'].includes(command) ? command : flagKey;
+  const actionKey = ['go', 'talk', 'roll', 'rest'].includes(command) ? command : flagKey;
   if (stamina?.collapsed && BLOCKED_WHEN_COLLAPSED.has(actionKey)) {
     const spot = db
       .prepare(
@@ -288,7 +293,12 @@ function main() {
           fail(
             'No hero yet. Run: node game/cli.js hero create --name <n> --race <r> --class <c> --scores <six numbers>',
           );
-        out({ ok: true, hero: withDisplay(hero) });
+        const saveId = currentSaveId();
+        out({
+          ok: true,
+          hero: withDisplay(hero),
+          vitals: { ...readVitals(db, saveId), items: countItems(db, saveId) },
+        });
       } else if (sub === 'create') {
         arity(rest, 0, 0, 'hero create --name <n> --race <r> --class <c> --scores <six numbers>');
         const saveId = currentSaveId();
@@ -482,6 +492,26 @@ function main() {
           message: t(rest[0], 'language.changed', { name: LANGUAGE_NAMES[rest[0]] }),
           pack: packFor(rest[0]),
         });
+      } else fail(USAGE);
+      break;
+    }
+    case 'rest': {
+      arity(
+        [sub, ...rest].filter((part) => part !== undefined),
+        0,
+        0,
+        'rest',
+      );
+      out({ ok: true, ...restHero(db, currentSaveId()) });
+      break;
+    }
+    case 'item': {
+      if (sub === 'list') {
+        arity(rest, 0, 0, 'item list');
+        out({ ok: true, items: listItems(db, currentSaveId()) });
+      } else if (sub === 'name') {
+        arity(rest, 2, 2, 'item name <id> "<name>"');
+        out({ ok: true, ...nameItem(db, currentSaveId(), toInt(rest[0], 'id'), rest[1]) });
       } else fail(USAGE);
       break;
     }

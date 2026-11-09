@@ -1279,3 +1279,66 @@ test('the Ukrainian collapse line names the place and keeps the machine fields',
   assert.match(error.error, /виснажений/);
   assert.match(error.error, /«Place 1»/);
 });
+
+// ---- hero vitals, rest, and items
+const giveItem = (game) =>
+  game
+    .db()
+    .prepare(
+      "INSERT INTO inventory_items (save_id, source, quest_id, created_at) VALUES (1, 'quest', 'dice-roll', 'now')",
+    )
+    .run();
+
+test('hero show carries health, gold, and the item count', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('hero', 'show').json.vitals, { hp: 10, maxHp: 10, gold: 0, items: 0 });
+  giveItem(game);
+  game.db().prepare('UPDATE heroes SET hp = 4, gold = 7 WHERE save_id = 1').run();
+  const vitals = game.run('hero', 'show').json.vitals;
+  assert.deepEqual([vitals.hp >= 4, vitals.maxHp, vitals.gold, vitals.items], [true, 10, 7, 1]);
+});
+
+test('rest heals a hurt hero for gold at the start, and says why when it cannot', () => {
+  const game = readyGame();
+  const full = game.run('rest');
+  assert.equal(full.status, 1);
+  assert.match(JSON.parse(full.stderr.trim()).error, /full health/i);
+  game.db().prepare('UPDATE heroes SET hp = 4, hp_updated_at = ? WHERE save_id = 1').run(new Date().toISOString());
+  assert.match(JSON.parse(game.run('rest').stderr.trim()).error, /5 gold/);
+  game.db().prepare('UPDATE heroes SET gold = 20 WHERE save_id = 1').run();
+  const rested = game.run('rest');
+  assert.equal(rested.status, 0, rested.stderr);
+  assert.deepEqual(rested.json, { ok: true, hp: 10, maxHp: 10, gold: 15, cost: 5 });
+  assert.equal(game.run('rest', 'now').status, 1);
+});
+
+test('item list and item name work, reject extra arguments, and name an item only once', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('item', 'list').json, { ok: true, items: [] });
+  giveItem(game);
+  const named = game.run('item', 'name', '1', 'Rusty Lucky Die');
+  assert.equal(named.status, 0, named.stderr);
+  assert.deepEqual(named.json, { ok: true, id: 1, name: 'Rusty Lucky Die' });
+  const listed = game.run('item', 'list').json.items;
+  assert.deepEqual(
+    listed.map((i) => [i.id, i.name, i.source, i.questId]),
+    [[1, 'Rusty Lucky Die', 'quest', 'dice-roll']],
+  );
+  assert.equal(game.run('item', 'name', '1', 'Again').status, 1);
+  assert.equal(game.run('item', 'name', '1').status, 1);
+  assert.equal(game.run('item', 'name', 'x', 'Bad').status, 1);
+  assert.equal(game.run('item', 'list', 'extra').status, 1);
+  assert.equal(game.run('item').status, 1);
+});
+
+test('a collapsed hero cannot rest or name an item, but can still list items', () => {
+  const game = readyGame();
+  giveItem(game);
+  setReading(game, 99, 100);
+  for (const args of [['rest'], ['item', 'name', '1', 'Blocked']]) {
+    const result = game.run(...args);
+    assert.equal(result.status, 1, args.join(' '));
+    assert.equal(JSON.parse(result.stderr.trim()).collapsed, true, args.join(' '));
+  }
+  assert.equal(game.run('item', 'list').status, 0);
+});

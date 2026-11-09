@@ -9,6 +9,8 @@ export const REGEN_MS = 30 * 60 * 1000;
 export const REST_COST = 5;
 // A clean solve heals this share of the maximum, at least one point.
 export const SOLVE_HEAL_SHARE = 0.25;
+// A clean solve pays this much gold per point of the quest's complexity.
+export const GOLD_PER_COMPLEXITY = 5;
 
 const isoAt = (ms) => new Date(ms).toISOString();
 const whole = (value) => Number.isSafeInteger(value);

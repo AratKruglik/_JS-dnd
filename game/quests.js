@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { inTransaction } from './db.js';
 import { addHonorEvent, getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
-import { healForSolve } from './vitals.js';
+import { healForSolve, addGold, GOLD_PER_COMPLEXITY } from './vitals.js';
+import { grantItem, revokeQuestItem } from './inventory.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
 import { questText, generalStyle } from '../quests/text/index.js';
@@ -190,6 +191,8 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       `solved ${quest.id}`,
     );
     healForSolve(db, saveId);
+    addGold(db, saveId, quest.complexity * GOLD_PER_COMPLEXITY);
+    grantItem(db, saveId, { source: 'quest', questId: quest.id });
     return { solved: true, honor };
   });
 }
@@ -201,11 +204,14 @@ export function revokeSolve(db, saveId, questId, note = null) {
   return inTransaction(db, () => {
     const epoch = epochOf(db, saveId);
     const solve = db
-      .prepare('SELECT id, revoked_at FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+      .prepare('SELECT id, revoked_at, complexity FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
       .get(saveId, quest.id, epoch);
     if (!solve) throw new Error(`Quest "${quest.id}" is not solved in this epoch, so there is nothing to revoke.`);
     if (solve.revoked_at !== null) throw new Error(`The solve of "${quest.id}" is already revoked.`);
     db.prepare('UPDATE quest_solves SET revoked_at = ? WHERE id = ?').run(now(), solve.id);
+    // The gold and the item this solve gave go back too. Gold already spent is not taken below zero.
+    addGold(db, saveId, -solve.complexity * GOLD_PER_COMPLEXITY);
+    revokeQuestItem(db, saveId, quest.id);
     // Take back the bonus this solve really paid, so being caught late costs the same as being
     // caught at judging. Then the cheat penalty.
     const paid = db
