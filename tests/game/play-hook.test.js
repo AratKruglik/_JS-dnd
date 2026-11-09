@@ -59,7 +59,7 @@ test('after /play every prompt gets one state line, and only in that session', (
   const line = hook(prompt('game', 'I walk to the market')).stdout.trim();
   assert.match(
     line,
-    /^\[game\] at Place 1 \(L1\) \| quests 0\/\d+, next dice-roll \| no fight \| stamina \w+ \| honor 0$/,
+    /^\[game\] at Place 1 \(L1\) \| HP \d+\/\d+ \| 0 gold \| quests 0\/\d+, next dice-roll \| no fight \| stamina \w+ \| honor 0$/,
   );
   assert.equal(hook(prompt('other', 'hello')).stdout, '');
 });

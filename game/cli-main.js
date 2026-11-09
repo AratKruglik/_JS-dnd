@@ -290,16 +290,7 @@ function main() {
     case 'resume': {
       arity(positionals.slice(1), 0, 0, 'resume');
       const saveId = firstSave()?.id ?? createSave(db, { name: 'Save 1' });
-      const state = resumeState(db, saveId);
-      out({
-        ok: true,
-        saveId,
-        ...state,
-        hero: state.hero && withDisplay(state.hero),
-        vitals: state.hero ? { ...readVitals(db, saveId), items: countItems(db, saveId) } : null,
-        language: getLanguage(db, saveId),
-        pack: packFor(effectiveLanguage(db, saveId)),
-      });
+      out({ ok: true, saveId, ...resumeState(db, saveId) });
       break;
     }
     case 'hero': {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -85,4 +85,61 @@ test('the hook, the resume state, the fight reads, and the status line reach no 
     const sealed = reach(entry).filter((file) => file === 'game/dice.js' || file === 'game/rolls.js');
     assert.deepEqual(sealed, [], `${entry} reaches ${sealed.join(', ')}`);
   }
+});
+
+// ---- resume is what the /play skill runs before the model sees the prompt. A non-zero exit would abort
+// the whole skill, so every failure has to come back as one line on stdout with exit 0.
+function resumeIn(dir) {
+  const env = { ...process.env, JSDND_GAME_DB: join(dir, 'data', 'game.db') };
+  for (const name of ['JSDND_DICE_PATH', 'JSDND_ROLLS_PATH', 'JSDND_DICE_SEAL']) delete env[name];
+  return spawnSync('node', [join(dir, 'game', 'cli.js'), 'resume'], { cwd: dir, env, encoding: 'utf8' });
+}
+
+test('resume on tampered dice exits 0 and says tamper: true in one line', () => {
+  const { dir } = copyOfTheGame();
+  appendFileSync(join(dir, 'game', 'rolls.js'), '\n// rigged\n');
+  const result = resumeIn(dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  const json = JSON.parse(result.stdout);
+  assert.equal(json.tamper, true);
+  assert.equal(json.ok, false);
+});
+
+test('resume on a deleted dice file and on a broken seal exits 0 with the reason on stdout', () => {
+  const deleted = copyOfTheGame();
+  rmSync(join(deleted.dir, 'game', 'dice.js'));
+  const gone = resumeIn(deleted.dir);
+  assert.equal(gone.status, 0, gone.stderr);
+  assert.equal(JSON.parse(gone.stdout).tamper, true);
+
+  const broken = copyOfTheGame();
+  writeFileSync(join(broken.dir, 'game', 'dice.sha256'), `${'a'.repeat(64)}\n`);
+  const seal = resumeIn(broken.dir);
+  assert.equal(seal.status, 0, seal.stderr);
+  assert.equal(seal.stderr, '');
+  assert.equal(JSON.parse(seal.stdout).ok, false);
+});
+
+test('resume on a database that is not a database exits 0 and reports the error on stdout', () => {
+  const { dir } = copyOfTheGame();
+  writeFileSync(join(dir, 'data', 'game.db'), 'this is not sqlite');
+  const result = resumeIn(dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).ok, false);
+});
+
+test('resume still works for a collapsed hero and says so', () => {
+  const { dir } = copyOfTheGame();
+  const db = openGameDb(join(dir, 'data', 'game.db'));
+  db.prepare('INSERT INTO stamina (save_id, used_percent, resets_at, read_at) VALUES (1, 99, ?, ?)').run(
+    Math.floor(Date.now() / 1000) + 100 * 60,
+    Date.now(),
+  );
+  db.close();
+  const result = resumeIn(dir);
+  assert.equal(result.status, 0, result.stderr);
+  const json = JSON.parse(result.stdout);
+  assert.equal(json.stamina.collapsed, true);
+  assert.ok(json.stamina.hours >= 1);
 });
