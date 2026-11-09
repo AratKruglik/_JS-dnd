@@ -35,6 +35,10 @@ export default {
   'check.pass.everyTest': 'every test passes',
 
   // The stamina bar and the collapse line, printed by scripts with no Master in between.
+  // The hero line above the stamina bar.
+  'hero.line': '{name} Lv{level} | HP {hp}/{maxHp} | {gold} gold | {items} | {location}',
+  'hero.items': { one: '{count} item', other: '{count} items' },
+
   'stamina.bar': 'STAMINA {bar} {left}% left | resets in {reset}',
   'stamina.barEstimated': 'STAMINA ~{bar} ~{left}% left (est.) | resets in {reset}',
   'stamina.unknown': 'STAMINA unknown',

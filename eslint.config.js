@@ -13,6 +13,7 @@ export const playerFacing = [
   'game/child-check.js',
   'game/ending-page.js',
   'game/ending-stats.js',
+  'game/hero-line.js',
   'game/moves.js',
   'game/stamina.js',
   'game/statusline.js',

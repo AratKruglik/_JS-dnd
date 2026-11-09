@@ -15,6 +15,7 @@ Rules to hold the text to:
 - [ ] `check.` : what a quest check tells the player (timeouts, missing file, wrong result, passed). `{call}` and `{path}` stay as they are.
 - [ ] `style.` : the code style problems, one line per ESLint rule.
 - [ ] `move.` : the starter file comments of a combat move.
+- [ ] `hero.` : the hero line above the stamina bar (name, level, health, gold, items with plural forms, place).
 - [ ] `stamina.` : the stamina bar, the estimate marker, the collapse line with its plural forms for hours (one, few, many, other).
 - [ ] `ending.` : every heading and label on the ending page, including the date and duration wording.
 - [ ] `pack.glossary` : the Ukrainian JS term for each English one. The Master writes the Ukrainian term, then the English one in brackets, at its first use in a quest.

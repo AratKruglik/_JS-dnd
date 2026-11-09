@@ -1,9 +1,11 @@
 // Claude Code runs this as the project status line. It reads the session JSON on stdin, stores
-// the real 5 hour usage reading for the save, and prints one line. It must never throw or hang.
+// the real 5 hour usage reading for the save, and prints the hero line and the stamina bar. It must never
+// throw or hang.
 import { existsSync, readFileSync } from 'node:fs';
 import { defaultGameDbPath, openGameDb } from './db.js';
 import { parsePayload, recordReading, currentStamina, renderBar } from './stamina.js';
 import { DEFAULT_LANGUAGE, effectiveLanguage, t } from './i18n.js';
+import { heroLineInfo, renderHeroLine } from './hero-line.js';
 
 function readPayload() {
   try {
@@ -30,15 +32,26 @@ function line() {
       save = null;
     }
   }
+  // The hero line goes above the bar. If anything about it fails, such as a database from before the
+  // vitals columns, the bar is drawn alone.
+  let heroLine = '';
+  if (save) {
+    try {
+      const info = heroLineInfo(db, save.id, now);
+      if (info) heroLine = `${renderHeroLine(info, { color: true, lang })}\n`;
+    } catch {
+      heroLine = '';
+    }
+  }
   const fromPayload = reading
     ? renderBar({ ...reading, estimated: false }, now, 10, { color: true, lang })
     : t(lang, 'stamina.unknown');
   if (!save) return fromPayload;
   try {
     if (reading) recordReading(db, save.id, reading, now);
-    return renderBar(currentStamina(db, save.id, now), now, 10, { color: true, lang });
+    return heroLine + renderBar(currentStamina(db, save.id, now), now, 10, { color: true, lang });
   } catch {
-    return fromPayload;
+    return heroLine + fromPayload;
   }
 }
 

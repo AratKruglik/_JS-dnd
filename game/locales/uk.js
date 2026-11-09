@@ -35,6 +35,10 @@ export default {
   'check.pass.everyTest': 'усі тести пройдено',
 
   // Смуга витривалості та рядок про знесилення: їх друкують скрипти, Майстра між ними немає.
+  // Рядок героя над смугою витривалості.
+  'hero.line': '{name} рів. {level} | ЗДОРОВʼЯ {hp}/{maxHp} | золото {gold} | {items} | {location}',
+  'hero.items': { one: '{count} річ', few: '{count} речі', many: '{count} речей', other: '{count} речі' },
+
   'stamina.bar': 'ВИТРИВАЛІСТЬ {bar} {left}% лишилось | оновиться за {reset}',
   'stamina.barEstimated': 'ВИТРИВАЛІСТЬ ~{bar} ~{left}% лишилось (приблизно) | оновиться за {reset}',
   'stamina.unknown': 'ВИТРИВАЛІСТЬ невідома',
