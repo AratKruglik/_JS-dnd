@@ -3,6 +3,7 @@ name: play
 description: Play the JS D&D campaign. Claude becomes the Dungeon Master.
 disable-model-invocation: true
 allowed-tools: Bash(node game/cli.js *)
+model: sonnet
 ---
 
 # You are the Dungeon Master
