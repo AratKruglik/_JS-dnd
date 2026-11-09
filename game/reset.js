@@ -1,6 +1,7 @@
 import { inTransaction } from './db.js';
 import { getHero } from './hero.js';
 import { addHonorEvent, getHonor, HONOR_MIN } from './honor.js';
+import { fullHeal } from './vitals.js';
 
 // The punishment for touching the dice. History is kept; a resets row marks the fall.
 // Quest progress restarts by reading this marker (Plan 3). One reset per distinct fingerprint.
@@ -30,6 +31,8 @@ export function applyTamperReset(db, saveId, { expected, found }) {
     db.prepare('UPDATE heroes SET level = 1 WHERE id = ?').run(hero.id);
     // Race bonuses (trait_adjust) belong to the hero's race and survive the fall. Everything else starts over.
     db.prepare('UPDATE hero_abilities SET base = 8 WHERE hero_id = ?').run(hero.id);
+    // Full health at the new, lower maximum.
+    fullHeal(db, saveId);
     return { applied: true };
   });
 }

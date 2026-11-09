@@ -1,5 +1,9 @@
 // Turns the ending stats into one self-contained HTML file: inline CSS, inline SVG charts, no
-// script, no network. Every piece of text that came from the game or the player is escaped.
+// script, no network. Every piece of text that came from the game or the player is escaped. The
+// words on the page come from the language catalogs, in the language of the save.
+import { t } from './i18n.js';
+import { displayName } from './rules.js';
+
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 export const escapeHtml = (text) => String(text ?? '').replace(/[&<>"']/g, (ch) => ENTITIES[ch]);
@@ -9,11 +13,14 @@ const fmt = (n) => (Math.round(n * 10) / 10).toString();
 
 // A step or plain line chart. Points with a non finite x or y are dropped, so bad data can only
 // make the chart emptier, never broken.
-export function lineChart(points, { width = 640, height = 220, yMin, yMax, label = '', marks = [], step = true } = {}) {
+export function lineChart(
+  points,
+  { width = 640, height = 220, yMin, yMax, label = '', marks = [], step = true, empty = '' } = {},
+) {
   const pts = points.filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y));
   const open = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title>`;
   if (!pts.length) {
-    return `${open}<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="muted">No data yet</text></svg>`;
+    return `${open}<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="muted">${escapeHtml(empty)}</text></svg>`;
   }
 
   let lo = Number.isFinite(yMin) ? yMin : Math.min(...pts.map((p) => p.y));
@@ -62,8 +69,16 @@ export function lineChart(points, { width = 640, height = 220, yMin, yMax, label
   return `${open}${grid}${lines}<path d="${path}" class="line" fill="none"/>${dots}</svg>`;
 }
 
-const duration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
-const day = (iso) => String(iso ?? '').slice(0, 10);
+const duration = (minutes, lang) =>
+  t(lang, 'ending.duration', { hours: Math.floor(minutes / 60), minutes: String(minutes % 60).padStart(2, '0') });
+
+// English keeps the plain ISO day. Other languages write the date the way the language does.
+function day(iso, lang) {
+  if (lang === 'en') return String(iso ?? '').slice(0, 10);
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeZone: 'UTC' }).format(parsed);
+}
 
 const CSS = `
 :root { --bg: #fbfaf7; --fg: #1f1d1a; --muted: #6b665e; --card: #ffffff; --line: #d9d4ca; --accent: #8a4b14; --mark: #b3261e; }
@@ -90,57 +105,61 @@ th { color: var(--muted); font-weight: normal; }
 
 const stat = (value, label) => `<div class="stat"><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></div>`;
 
-export function renderPage(stats) {
+// English shows the stored keys (halfling rogue). Other languages show the display names.
+const plainName = (kind, key, lang) => (lang === 'en' ? key : displayName(kind, key, lang));
+
+export function renderPage(stats, lang = 'en') {
   const hero = stats.hero;
-  const name = hero ? hero.name : 'The hero';
-  const who = hero ? `${hero.race} ${hero.heroClass}` : '';
+  const name = hero ? hero.name : t(lang, 'ending.theHero');
+  const who = hero ? `${plainName('race', hero.race, lang)} ${plainName('class', hero.heroClass, lang)}` : '';
   const world = stats.setting ? stats.setting.name : '';
+  const subtitle = who && world ? t(lang, 'ending.subtitle', { who, world }) : who || world;
   const parse = (iso) => Date.parse(iso);
 
   const honorPoints = stats.honor.map((h) => ({ x: parse(h.at), y: h.honor, note: `${h.honor}: ${h.reason}` }));
   const falls = stats.honor
     .filter((h) => h.kind === 'reset')
-    .map((h) => ({ x: parse(h.at), label: 'A fall: the dice were tampered with' }));
+    .map((h) => ({ x: parse(h.at), label: t(lang, 'ending.fall') }));
   const complexityPoints = stats.complexity.map((c) => ({
     x: parse(c.at),
     y: c.cumulative,
-    note: `${c.cumulative} total`,
+    note: t(lang, 'ending.complexity.total', { total: c.cumulative }),
   }));
 
   const rows = stats.tasks.list
     .map(
-      (t) =>
-        `<tr><td>${escapeHtml(t.title)}</td><td>${escapeHtml(t.rung ?? '')}</td><td>${escapeHtml(t.complexity)}</td><td>${escapeHtml(t.hintsUsed)}</td><td>${escapeHtml(day(t.solvedAt))}</td></tr>`,
+      (s) =>
+        `<tr><td>${escapeHtml(s.title)}</td><td>${escapeHtml(s.rung ?? '')}</td><td>${escapeHtml(s.complexity)}</td><td>${escapeHtml(s.hintsUsed)}</td><td>${escapeHtml(day(s.solvedAt, lang))}</td></tr>`,
     )
     .join('');
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(name)}: the end of the road</title>
+<title>${escapeHtml(t(lang, 'ending.title', { name }))}</title>
 <style>${CSS}</style>
 </head>
 <body>
 <main>
 <h1>${escapeHtml(name)}</h1>
-<p class="sub">${escapeHtml([who, world].filter(Boolean).join(' in '))}</p>
+<p class="sub">${escapeHtml(subtitle)}</p>
 <div class="grid-stats">
-${stat(duration(stats.minutes), 'Time played (estimated)')}
-${stat(`${stats.tasks.solved} of ${stats.tasks.total}`, 'Tasks solved')}
-${stat(stats.enemiesDefeated, 'Enemies defeated')}
-${stat(stats.fights, 'Fights fought')}
-${stat(stats.falls, 'Falls')}
+${stat(duration(stats.minutes, lang), t(lang, 'ending.stat.time'))}
+${stat(t(lang, 'ending.tasksOf', { solved: stats.tasks.solved, total: stats.tasks.total }), t(lang, 'ending.stat.tasks'))}
+${stat(stats.enemiesDefeated, t(lang, 'ending.stat.enemies'))}
+${stat(stats.fights, t(lang, 'ending.stat.fights'))}
+${stat(stats.falls, t(lang, 'ending.stat.falls'))}
 </div>
-<h2>Honor over time</h2>
-${lineChart(honorPoints, { yMin: -100, yMax: 100, label: 'Honor over time', marks: falls })}
-<p class="sub">Dashed red lines mark a fall.</p>
-<h2>Complexity you took on</h2>
-${lineChart(complexityPoints, { yMin: 0, label: 'Cumulative quest complexity over time' })}
-<h2>Quests</h2>
+<h2>${escapeHtml(t(lang, 'ending.honor.heading'))}</h2>
+${lineChart(honorPoints, { yMin: -100, yMax: 100, label: t(lang, 'ending.honor.heading'), marks: falls, empty: t(lang, 'ending.empty') })}
+<p class="sub">${escapeHtml(t(lang, 'ending.honor.note'))}</p>
+<h2>${escapeHtml(t(lang, 'ending.complexity.heading'))}</h2>
+${lineChart(complexityPoints, { yMin: 0, label: t(lang, 'ending.complexity.chart'), empty: t(lang, 'ending.empty') })}
+<h2>${escapeHtml(t(lang, 'ending.quests.heading'))}</h2>
 <table>
-<tr><th>Quest</th><th>Rung</th><th>Complexity</th><th>Hints</th><th>Solved</th></tr>
+<tr><th>${escapeHtml(t(lang, 'ending.col.quest'))}</th><th>${escapeHtml(t(lang, 'ending.col.rung'))}</th><th>${escapeHtml(t(lang, 'ending.col.complexity'))}</th><th>${escapeHtml(t(lang, 'ending.col.hints'))}</th><th>${escapeHtml(t(lang, 'ending.col.solved'))}</th></tr>
 ${rows}
 </table>
 </main>

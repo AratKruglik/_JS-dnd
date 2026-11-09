@@ -11,7 +11,7 @@ const part = (name) => readFileSync(join(skillDir, name), 'utf8');
 const skill = part('SKILL.md');
 const onboardingFile = part('onboarding.md');
 const combatFile = part('combat.md');
-const play = [skill, onboardingFile, combatFile, part('stamina.md'), part('ending.md')].join('\n');
+const play = [skill, onboardingFile, combatFile, part('stamina.md'), part('vitals.md'), part('ending.md')].join('\n');
 const claudeMd = readFileSync(join(root, 'CLAUDE.md'), 'utf8');
 
 test('the play skill has a header, only runs when the player types /play, and loads the state up front', () => {
@@ -22,7 +22,7 @@ test('the play skill has a header, only runs when the player types /play, and lo
 });
 
 test('the play skill points to every reference file it splits out', () => {
-  for (const name of ['onboarding.md', 'combat.md', 'stamina.md', 'ending.md']) {
+  for (const name of ['onboarding.md', 'combat.md', 'stamina.md', 'vitals.md', 'ending.md']) {
     assert.ok(skill.includes(`.claude/skills/play/${name}`), `SKILL.md never points to ${name}`);
   }
 });
@@ -245,4 +245,74 @@ test('play.md tells the Master how to take back a solve it later finds was cheat
   const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
   assert.ok(quests.includes('node game/cli.js quest revoke'));
   assert.match(quests, /after a solve/i);
+});
+
+test('every --flag play.md mentions next to a command is a real option in the CLI usage', () => {
+  const probe = spawnSync('node', [join(root, 'game', 'cli.js')], { encoding: 'utf8' });
+  const usage = JSON.parse(probe.stderr.trim()).error;
+  const flags = new Set();
+  for (const line of play.split('\n')) {
+    if (!line.includes('node game/cli.js')) continue;
+    for (const match of line.matchAll(/--[a-z][a-z-]*/g)) flags.add(match[0]);
+  }
+  assert.ok(flags.size >= 8, `only ${flags.size} flags found`);
+  for (const flag of flags) assert.ok(usage.includes(flag), `play.md uses ${flag} but the usage does not list it`);
+});
+
+test('play.md says a revoke also takes back the bonus the solve paid', () => {
+  const quests = play.slice(play.indexOf('## Quests'), play.indexOf('## Combat'));
+  assert.match(quests, /takes back the bonus/i);
+});
+
+test('the skill settles the language at the start, before onboarding, and asks only when none is chosen', () => {
+  const start = skill.slice(skill.indexOf('## Start'), skill.indexOf('## Playing'));
+  assert.match(start, /language.{0,20}null/i);
+  assert.ok(start.includes('node game/cli.js lang set'));
+  assert.ok(start.indexOf('lang set') < start.indexOf('onboarding.md'));
+});
+
+test('play.md has a Language section with the rules the Master must follow', () => {
+  assert.match(play, /## Language/);
+  const language = play.slice(
+    play.indexOf('## Language'),
+    play.indexOf('## Ground rules') > play.indexOf('## Language') ? play.indexOf('## Ground rules') : undefined,
+  );
+  assert.match(language, /pack/i);
+  assert.match(language, /only that language/i);
+  assert.match(language, /never mix/i);
+  assert.match(language, /code, file names, and commands stay (in )?English/i);
+  assert.match(language, /quote[^.]*exactly|exactly as/i);
+  assert.match(language, /script errors/i);
+  assert.match(language, /stored (world )?text/i);
+  assert.match(language, /first (use|time)[^.]*quest/i);
+});
+
+test('play.md tells the Master to show races and classes by display name and pass the typed words on', () => {
+  const onboarding = onboardingFile;
+  assert.match(onboarding, /`display`/);
+  assert.match(onboarding, /both languages/i);
+  assert.match(onboarding, /raceDisplay/);
+});
+
+test('play.md tells the Master how health, gold, rest, and items work, with real commands', () => {
+  const start = play.indexOf('## Health, gold, and items');
+  const end = play.indexOf('## Ending');
+  assert.ok(start >= 0 && end > start, 'the Health, gold, and items section is missing or misplaced');
+  const section = play.slice(start, end);
+  for (const command of [
+    'node game/cli.js rest',
+    'node game/cli.js item list',
+    'node game/cli.js item name',
+    'node game/cli.js hero show',
+  ]) {
+    assert.ok(section.includes(command), `${command} is not explained`);
+  }
+  assert.match(section, /never (invent|change)/i);
+  assert.match(section, /name it once/i);
+  assert.match(section, /voice of the setting/);
+});
+
+test('every game command named in play.md exists in the CLI usage text', () => {
+  const usage = readFileSync(join(root, 'game', 'cli-main.js'), 'utf8');
+  for (const command of ['rest', 'item list', 'item name']) assert.ok(usage.includes(command), command);
 });

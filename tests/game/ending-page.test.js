@@ -173,3 +173,96 @@ test('digits use lining figures and five stat cards fit one row on a wide screen
   assert.match(html, /font-variant-numeric: lining-nums/);
   assert.match(html, /minmax\(130px, 1fr\)/);
 });
+
+test('a chart label with quotes cannot break out of the aria-label attribute', () => {
+  const svg = lineChart([{ x: 1, y: 1 }], { label: '"><script>x</script>' });
+  assert.ok(svg.includes('aria-label="&quot;&gt;&lt;script&gt;x&lt;/script&gt;"'));
+  assert.ok(!svg.includes('"><script'));
+});
+
+test('a mark title is escaped', () => {
+  const svg = lineChart(
+    [
+      { x: 1, y: 1 },
+      { x: 5, y: 2 },
+    ],
+    { marks: [{ x: 3, label: '<b>fall</b>' }] },
+  );
+  assert.ok(!svg.includes('<b>'));
+  assert.ok(svg.includes('&lt;b&gt;fall&lt;/b&gt;'));
+});
+
+test('a chart draws at most 300 dots, and values above the top stay inside the chart', () => {
+  const points = Array.from({ length: 400 }, (_, i) => ({ x: i, y: 5 }));
+  assert.equal((lineChart(points).match(/<circle/g) ?? []).length, 300);
+
+  const high = lineChart(
+    [
+      { x: 1, y: 500 },
+      { x: 2, y: -500 },
+    ],
+    { yMin: -100, yMax: 100, width: 640, height: 220 },
+  );
+  const ys = [...high.matchAll(/cy="([^"]+)"/g)].map((m) => Number(m[1]));
+  assert.ok(ys.length === 2 && ys.every((y) => y >= 16 && y <= 192), ys.join(','));
+});
+
+const ukStats = () =>
+  stats({
+    hero: { name: 'Більбо', race: 'halfling', heroClass: 'rogue', level: 1 },
+    setting: { name: 'Нічне місто' },
+    honor: [
+      { at: T(0), honor: 5, kind: 'clean_solve', reason: 'чесне рішення' },
+      { at: T(30), honor: -100, kind: 'reset', reason: 'кубики підроблено' },
+    ],
+    tasks: {
+      solved: 1,
+      total: 3,
+      list: [
+        { id: 'dice-roll', title: 'Власний кубик', rung: 1, complexity: 2, solvedAt: T(10), hintsUsed: 0, epoch: 0 },
+      ],
+    },
+    complexity: [{ at: T(10), cumulative: 2 }],
+  });
+
+// The text of a page: no style block, no tags, so what is left is what a player reads.
+const textOf = (html) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ');
+
+test('the Ukrainian page declares its language and carries no English words, only the player data', () => {
+  const html = renderPage(ukStats(), 'uk');
+  assert.match(html, /<html lang="uk">/);
+  assert.match(html, /<title>Більбо: кінець дороги<\/title>/);
+  const text = textOf(html);
+  assert.doesNotMatch(text, /[A-Za-z]/, text.match(/[A-Za-z]+/)?.[0]);
+  for (const heading of ['Честь з часом', 'Завдання', 'Падінь', 'Розвʼязано завдань'])
+    assert.ok(html.includes(heading), heading);
+  assert.match(html, /1 з 3/);
+  assert.match(html, /2 год 15 хв/);
+  assert.ok(!/NaN|Infinity|undefined|null/.test(html));
+});
+
+test('the Ukrainian page shows dates the way the language writes them, not as ISO text', () => {
+  const html = renderPage(ukStats(), 'uk');
+  const expected = new Intl.DateTimeFormat('uk', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(T(10)));
+  assert.ok(html.includes(expected), expected);
+  assert.ok(!html.includes('2026-11-08'));
+  assert.ok(renderPage(stats(), 'en').includes('2026-11-08'));
+});
+
+test('an empty Ukrainian chart says so in Ukrainian, and hostile text is still escaped', () => {
+  assert.match(lineChart([], { empty: 'Даних ще немає' }), /Даних ще немає/);
+  const evil = ukStats();
+  evil.hero.name = '<script>alert(1)</script>';
+  const html = renderPage(evil, 'uk');
+  assert.ok(!html.includes('<script'));
+  assert.ok(html.includes('&lt;script&gt;'));
+});
+
+test('English stays what it was: the default language gives the same page as asking for en', () => {
+  assert.equal(renderPage(stats()), renderPage(stats(), 'en'));
+});
+
+test('an empty chart never falls back to English words of its own', () => {
+  assert.ok(!lineChart([]).includes('No data'));
+  assert.ok(!/[A-Za-z]{3,} [A-Za-z]{3,}/.test(lineChart([]).replace(/<[^>]*>/g, ' ')));
+});

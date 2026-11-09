@@ -4,6 +4,10 @@ import { join } from 'node:path';
 import { openGameDb } from '../../game/db.js';
 import { QUESTS } from '../../quests/index.js';
 
+// Every test that opens a game database runs the translator strictly: a missing key or placeholder
+// throws, so a leak of a raw {placeholder} fails a test. Spawned CLI processes inherit it.
+process.env.JSDND_I18N_STRICT = '1';
+
 export const freshDb = () => openGameDb(join(mkdtempSync(join(tmpdir(), 'jsdnd-game-')), 'game.db'));
 
 export const count = (db, table) => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;

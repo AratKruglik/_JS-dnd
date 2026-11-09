@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setSetting, fillWorld, worldStatus, getSetting } from '../../game/world.js';
 import { createSave } from '../../game/hero.js';
+import { setLanguage } from '../../game/i18n.js';
 import { freshDb, count } from './helpers.js';
 
 const setup = () => {
@@ -201,4 +202,32 @@ test('an old world with only six npcs reports npcs as missing instead of crashin
   fillWorld(db, saveId, goodWorld());
   db.prepare("DELETE FROM world_npcs WHERE save_id = ? AND slot = 'N7'").run(saveId);
   assert.deepEqual(worldStatus(db, saveId).missing, ['npcs']);
+});
+
+test('a banned Ukrainian phrase is rejected in a Ukrainian save, and passes in an English one', () => {
+  const ukrainian = freshDb();
+  const ukSave = createSave(ukrainian, {});
+  setLanguage(ukrainian, ukSave, 'uk');
+  assert.throws(
+    () =>
+      setSetting(ukrainian, ukSave, {
+        source: 'written',
+        name: 'Нічне місто',
+        description: 'Чудове запитання, подорожній, як ти тут опинився?',
+        voice: 'Стримано і коротко.',
+      }),
+    /banned phrase "чудове запитання"/,
+  );
+
+  const world = goodWorld();
+  world.npcs.N3.description = 'Не соромтеся питати його про що завгодно.';
+  assert.throws(
+    () => fillWorld(ukrainian, ukSave, world),
+    /NPC N3 description contains the banned phrase "не соромтеся"/,
+  );
+  assert.equal(count(ukrainian, 'world_npcs'), 0);
+
+  const english = freshDb();
+  const enSave = createSave(english, {});
+  assert.doesNotThrow(() => fillWorld(english, enSave, world));
 });

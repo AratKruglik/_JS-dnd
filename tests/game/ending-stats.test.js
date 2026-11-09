@@ -6,13 +6,14 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { activeSeconds, collectStats } from '../../game/ending-stats.js';
 import { beginFight, heroAttack } from '../../game/combat-engine.js';
-import { createSave, createHeroFromChoices } from '../../game/hero.js';
+import { createSave, createHero, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { addHonorEvent, getHonor } from '../../game/honor.js';
 import { QUESTS } from '../../quests/index.js';
-import { freshDb } from './helpers.js';
+import { questText } from '../../quests/text/index.js';
+import { freshDb, markSolved } from './helpers.js';
 import { SETTING, goodWorld } from './world-fixtures.js';
 
 const solutions = join(resolve(dirname(fileURLToPath(import.meta.url))), '..', 'quests', 'solutions');
@@ -100,7 +101,7 @@ test('stats after a real run: solves, a win, a fall, and the honor and complexit
     stats.tasks.list.map((t) => t.id),
     QUESTS.map((q) => q.id),
   );
-  assert.equal(stats.tasks.list[0].title, QUESTS[0].title);
+  assert.equal(stats.tasks.list[0].title, questText(QUESTS[0].id, 'en').title);
   assert.equal(stats.tasks.list[0].rung, QUESTS[0].rung);
   let running = 0;
   assert.deepEqual(
@@ -117,4 +118,126 @@ test('stats after a real run: solves, a win, a fall, and the honor and complexit
   assert.deepEqual([stats.falls, stats.tasks.solved, stats.tasks.list.length, stats.enemiesDefeated], [1, 0, 3, 1]);
   assert.deepEqual(stats.honor.at(-1).honor, -100);
   assert.equal(stats.honor.at(-1).kind, 'reset');
+});
+
+// One row in one source table ten minutes after an anchor row. If the source is not collected,
+// the gap never forms and the minutes stay at 0.
+const SOURCE_ROWS = {
+  heroes: (db, s, at) => {
+    createHero(db, s, { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue' });
+    db.prepare('UPDATE heroes SET created_at = ? WHERE save_id = ?').run(at(10), s);
+  },
+  dice_rolls: (db, s, at) =>
+    db
+      .prepare("INSERT INTO dice_rolls (save_id, created_at, spec, results, total) VALUES (?, ?, '1d20', '[5]', 5)")
+      .run(s, at(10)),
+  honor_events: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO honor_events (save_id, created_at, delta, kind, reason, honor_after) VALUES (?, ?, 1, 'x', 'y', 1)",
+      )
+      .run(s, at(10)),
+  resets: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO resets (save_id, created_at, reason, fingerprint_expected, fingerprint_found) VALUES (?, ?, 'x', 'a', 'b')",
+      )
+      .run(s, at(10)),
+  quest_attempts: (db, s, at) => attempt(db, s, at(10)),
+  quest_judgments: (db, s, at) =>
+    db
+      .prepare("INSERT INTO quest_judgments (attempt_id, created_at, verdict) VALUES (?, ?, 'clean')")
+      .run(attempt(db, s, at(0)), at(10)),
+  quest_solves: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO quest_solves (save_id, quest_id, attempt_id, solved_at, epoch, hints_used, complexity) VALUES (?, 'dice-roll', ?, ?, 0, 0, 1)",
+      )
+      .run(s, attempt(db, s, at(0)), at(10)),
+  quest_hints: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO quest_hints (save_id, quest_id, created_at, epoch, kind) VALUES (?, 'dice-roll', ?, 0, 'npc_speech')",
+      )
+      .run(s, at(10)),
+  fights_started: (db, s, at) =>
+    db.prepare("INSERT INTO fights (save_id, started_at, trigger_reason) VALUES (?, ?, 'x')").run(s, at(10)),
+  fights_ended: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO fights (save_id, started_at, ended_at, trigger_reason, outcome) VALUES (?, ?, ?, 'x', 'fled')",
+      )
+      .run(s, at(0), at(10)),
+  fight_log: (db, s, at) =>
+    db
+      .prepare("INSERT INTO fight_log (fight_id, seq, created_at, actor, action) VALUES (?, 1, ?, 'hero', 'hit')")
+      .run(fight(db, s, at(0)), at(10)),
+  fight_moves: (db, s, at) =>
+    db
+      .prepare(
+        "INSERT INTO fight_moves (fight_id, created_at, title, brief, difficulty, tests, status) VALUES (?, ?, 't', 'b', 1, '[]', 'open')",
+      )
+      .run(fight(db, s, at(0)), at(10)),
+};
+
+function attempt(db, saveId, when) {
+  return Number(
+    db
+      .prepare(
+        "INSERT INTO quest_attempts (save_id, quest_id, created_at, status, expected, got, message, complexity) VALUES (?, 'dice-roll', ?, 'pass', '', '', '', 1)",
+      )
+      .run(saveId, when).lastInsertRowid,
+  );
+}
+
+function fight(db, saveId, when) {
+  return Number(
+    db.prepare("INSERT INTO fights (save_id, started_at, trigger_reason) VALUES (?, ?, 'x')").run(saveId, when)
+      .lastInsertRowid,
+  );
+}
+
+for (const [source, addRow] of Object.entries(SOURCE_ROWS)) {
+  test(`hours count the ${source} timestamps, for that save only`, () => {
+    const db = freshDb();
+    const mine = createSave(db, {});
+    const other = createSave(db, {});
+    const at = (m) => new Date(Date.UTC(2026, 10, 8, 10, m)).toISOString();
+    // The anchor is a honor event, or a dice roll when the honor events are the source under test.
+    const anchor = (saveId) =>
+      source === 'honor_events'
+        ? db
+            .prepare(
+              "INSERT INTO dice_rolls (save_id, created_at, spec, results, total) VALUES (?, ?, '1d20', '[5]', 5)",
+            )
+            .run(saveId, at(0))
+        : db
+            .prepare(
+              "INSERT INTO honor_events (save_id, created_at, delta, kind, reason, honor_after) VALUES (?, ?, 1, 'x', 'y', 1)",
+            )
+            .run(saveId, at(0));
+    anchor(mine);
+    addRow(db, mine, at);
+    assert.equal(collectStats(db, mine).minutes, 10, `${source} was not counted`);
+
+    const lonely = createSave(db, {});
+    anchor(lonely);
+    addRow(db, other, at);
+    assert.equal(collectStats(db, lonely).minutes, 0, `${source} leaked in from another save`);
+  });
+}
+
+test('a revoked solve is not listed as solved and does not feed the complexity chart', () => {
+  const db = freshDb();
+  const saveId = createSave(db, {});
+  markSolved(db, saveId, 'dice-roll', '2026-11-08T10:00:00.000Z');
+  markSolved(db, saveId, 'string-shout', '2026-11-08T10:05:00.000Z');
+  db.prepare("UPDATE quest_solves SET revoked_at = '2026-11-08T10:10:00.000Z' WHERE quest_id = 'string-shout'").run();
+  const stats = collectStats(db, saveId);
+  assert.deepEqual(
+    stats.tasks.list.map((t) => t.id),
+    ['dice-roll'],
+  );
+  assert.equal(stats.complexity.length, 1);
+  assert.equal(stats.tasks.solved, 1);
 });

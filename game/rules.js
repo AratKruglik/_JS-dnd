@@ -1,3 +1,6 @@
+import { names as enNames } from './locales/en.js';
+import { names as ukNames } from './locales/uk.js';
+
 export const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
 // 5e SRD races and their ability score bonuses. Half-elf is fixed (CHA +2, DEX +1, CON +1)
@@ -29,14 +32,63 @@ export const STANDARD_CLASSES = [
   'wizard',
 ];
 
-// Friendly names players actually type.
-export const ALIASES = {
-  hobbit: 'halfling',
-  magician: 'wizard',
-  mage: 'wizard',
-  'half elf': 'half-elf',
-  'half orc': 'half-orc',
+// The hit die of each standard class (5e). Max HP at level 1 is the die plus the CON modifier.
+// A custom class has no table entry and gets the default die.
+export const HIT_DICE = {
+  barbarian: 12,
+  bard: 8,
+  cleric: 8,
+  druid: 8,
+  fighter: 10,
+  monk: 8,
+  paladin: 10,
+  ranger: 10,
+  rogue: 8,
+  sorcerer: 6,
+  warlock: 8,
+  wizard: 6,
 };
+export const DEFAULT_HIT_DIE = 8;
+export const hitDie = (heroClass) => (Object.hasOwn(HIT_DICE, heroClass) ? HIT_DICE[heroClass] : DEFAULT_HIT_DIE);
+
+// Names players type, in both languages. Matching flattens case, spacing, and apostrophe variants.
+const NAME_TABLES = { en: enNames, uk: ukNames };
+
+export const normalizeName = (text) =>
+  String(text ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u02bc`]/g, "'")
+    .replace(/\s+/g, ' ');
+
+// normalized text (a key, a display name, or an alias, in any language) -> the stable English key
+const LOOKUP = { race: new Map(), class: new Map() };
+for (const [kind, group] of [
+  ['race', 'races'],
+  ['class', 'classes'],
+]) {
+  for (const names of Object.values(NAME_TABLES)) {
+    for (const [key, entry] of Object.entries(names[group])) {
+      for (const text of [key, entry.name, ...entry.aliases]) LOOKUP[kind].set(normalizeName(text), key);
+    }
+  }
+}
+
+// The English aliases as one map, kept for the rules commands: hobbit -> halfling and the rest.
+export const ALIASES = Object.fromEntries(
+  ['races', 'classes'].flatMap((group) =>
+    Object.entries(enNames[group]).flatMap(([key, entry]) => entry.aliases.map((alias) => [alias, key])),
+  ),
+);
+
+// How a standard pick is shown in a language. A custom pick is shown exactly as the player typed it.
+export function displayName(kind, key, lang) {
+  const group = kind === 'race' ? 'races' : 'classes';
+  return NAME_TABLES[lang]?.[group]?.[key]?.name ?? key;
+}
+
+export const aliasesFor = (kind, key, lang) =>
+  NAME_TABLES[lang]?.[kind === 'race' ? 'races' : 'classes']?.[key]?.aliases ?? [];
 
 // 5e point buy: every score starts at 8, you have 27 points, and no score goes above 15.
 export const POINT_BUY_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
@@ -49,10 +101,8 @@ const CUSTOM_POSITIVE_TOTAL = 4;
 
 export function resolveName(kind, name) {
   const trimmed = String(name ?? '').trim();
-  const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
-  const resolved = ALIASES[key] ?? key;
-  const known = kind === 'race' ? Object.hasOwn(STANDARD_RACES, resolved) : STANDARD_CLASSES.includes(resolved);
-  return known ? { standard: true, name: resolved } : { standard: false, name: trimmed };
+  const key = LOOKUP[kind].get(normalizeName(trimmed));
+  return key ? { standard: true, name: key } : { standard: false, name: trimmed };
 }
 
 export function validatePointBuy(scores) {

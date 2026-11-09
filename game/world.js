@@ -3,9 +3,11 @@ import { getHero } from './hero.js';
 import { getProgress } from './quests.js';
 import { requireAwake } from './knockouts.js';
 import { lintVoice } from './voice.js';
+import { effectiveLanguage } from './i18n.js';
 import { worldStatus } from './world-status.js';
 import { SKELETON } from '../world/skeleton.js';
 import { QUESTS } from '../quests/index.js';
+import { questText } from '../quests/text/index.js';
 
 const SOURCES = ['offered', 'customized', 'written'];
 const now = () => new Date().toISOString();
@@ -23,22 +25,23 @@ function assertNotStarted(db, saveId) {
 }
 
 // Collects problems for one text field: empty, wrong type, or banned AI-speak.
-function checkText(problems, label, value) {
+function checkText(problems, lang, label, value) {
   if (typeof value !== 'string' || !value.trim()) {
     problems.push(`${label} must not be empty.`);
     return;
   }
-  const { hits } = lintVoice(value);
+  const { hits } = lintVoice(value, lang);
   for (const hit of hits)
     problems.push(`${label} contains the banned phrase "${hit}". Rewrite it in the setting's voice.`);
 }
 
 export function setSetting(db, saveId, { source, name, description, voice }) {
+  const lang = effectiveLanguage(db, saveId);
   const problems = [];
   if (!SOURCES.includes(source)) problems.push(`Unknown source "${source}". Use one of: ${SOURCES.join(', ')}.`);
-  checkText(problems, 'Setting name', name);
-  checkText(problems, 'Setting description', description);
-  checkText(problems, 'Setting voice', voice);
+  checkText(problems, lang, 'Setting name', name);
+  checkText(problems, lang, 'Setting description', description);
+  checkText(problems, lang, 'Setting voice', voice);
   if (problems.length) throw new Error(problems.join(' '));
 
   assertNotStarted(db, saveId);
@@ -72,6 +75,7 @@ function checkUniqueNames(problems, kind, given) {
 
 // Stores the Master's whole world in one transaction. Nothing is written unless every slot is valid.
 export function fillWorld(db, saveId, data) {
+  const lang = effectiveLanguage(db, saveId);
   const locationSlots = SKELETON.locations.map((l) => l.slot);
   const npcSlots = SKELETON.npcs.map((n) => n.slot);
   const problems = [];
@@ -84,17 +88,17 @@ export function fillWorld(db, saveId, data) {
   if (locationsOk) {
     for (const slot of locationSlots) {
       if (!isPlainObject(locations[slot])) continue;
-      checkText(problems, `Location ${slot} name`, locations[slot].name);
-      checkText(problems, `Location ${slot} description`, locations[slot].description);
+      checkText(problems, lang, `Location ${slot} name`, locations[slot].name);
+      checkText(problems, lang, `Location ${slot} description`, locations[slot].description);
     }
     checkUniqueNames(problems, 'location', locations);
   }
   if (npcsOk) {
     for (const slot of npcSlots) {
       if (!isPlainObject(npcs[slot])) continue;
-      checkText(problems, `NPC ${slot} name`, npcs[slot].name);
-      checkText(problems, `NPC ${slot} description`, npcs[slot].description);
-      checkText(problems, `NPC ${slot} voice`, npcs[slot].voice);
+      checkText(problems, lang, `NPC ${slot} name`, npcs[slot].name);
+      checkText(problems, lang, `NPC ${slot} description`, npcs[slot].description);
+      checkText(problems, lang, `NPC ${slot} voice`, npcs[slot].voice);
     }
     checkUniqueNames(problems, 'npc', npcs);
   }
@@ -206,7 +210,8 @@ export function talk(db, saveId, npcSlot) {
     const earlierSolved = QUESTS.slice(0, index).every((q) => solved.includes(q.id));
     if (earlierSolved && !solved.includes(spot.questId)) {
       const quest = QUESTS[index];
-      offer = { questId: quest.id, title: quest.title, brief: quest.brief };
+      const text = questText(quest.id, effectiveLanguage(db, saveId));
+      offer = { questId: quest.id, title: text.title, brief: text.brief };
     }
   }
   return { npc: { slot: npc.slot, name: npc.name, description: npc.description, voice: npc.voice }, offer };

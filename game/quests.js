@@ -3,11 +3,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inTransaction } from './db.js';
-import { getHonor } from './honor.js';
+import { addHonorEvent, getHonor } from './honor.js';
 import { applyHonorRule, toneFor } from './honor-rules.js';
+import { healForSolve, addGold, GOLD_PER_COMPLEXITY } from './vitals.js';
+import { grantItem, revokeQuestItem } from './inventory.js';
 import { runQuestCheck } from './quest-runner.js';
 import { QUESTS, getQuest } from '../quests/index.js';
-import { GENERAL_STYLE } from '../quests/style.js';
+import { questText, generalStyle } from '../quests/text/index.js';
+import { DEFAULT_LANGUAGE, effectiveLanguage } from './i18n.js';
 import { checkStyle } from './style-check.js';
 import { getHero } from './hero.js';
 import { worldStatus } from './world-status.js';
@@ -55,19 +58,22 @@ function requireQuestAccess(db, saveId, quest) {
 }
 
 // With a database and a save the quest is gated. Tools that only want the stub can leave them out.
-export function startQuest(questId, { playerDir = defaultPlayerDir(), db, saveId } = {}) {
+export function startQuest(questId, { playerDir = defaultPlayerDir(), db, saveId, lang } = {}) {
   const quest = requireQuest(questId);
   if (db) requireQuestAccess(db, saveId, quest);
+  const language = lang ?? (db ? effectiveLanguage(db, saveId) : DEFAULT_LANGUAGE);
+  const text = questText(quest.id, language);
   mkdirSync(playerDir, { recursive: true });
   const file = join(playerDir, `${quest.id}.js`);
   const created = !existsSync(file);
-  if (created) writeFileSync(file, quest.stub);
+  if (created) writeFileSync(file, text.stub);
   return {
     questId: quest.id,
     file,
     created,
-    brief: quest.brief,
-    style: { general: GENERAL_STYLE, specific: quest.style?.specific ?? [] },
+    title: text.title,
+    brief: text.brief,
+    style: { general: generalStyle(language), specific: text.specific },
   };
 }
 
@@ -79,7 +85,8 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
   const playerPath = join(playerDir, `${quest.id}.js`);
   // Hash first: this is the code the check is about to run. Step 2 must read the same bytes.
   const sha = fileHash(playerPath);
-  const result = runQuestCheck(quest.id, playerPath, { timeoutMs: timeoutMs ?? quest.timeoutMs });
+  const lang = effectiveLanguage(db, saveId);
+  const result = runQuestCheck(quest.id, playerPath, { timeoutMs: timeoutMs ?? quest.timeoutMs, lang });
   const attempt = db
     .prepare(
       'INSERT INTO quest_attempts (save_id, quest_id, created_at, status, expected, got, message, complexity, file_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -92,7 +99,7 @@ export function checkQuest(db, saveId, questId, { playerDir = defaultPlayerDir()
     ...result,
     next: passed ? 'judge' : 'retry',
     ...(passed ? { tone: toneFor(getHonor(db, saveId)) } : {}),
-    ...(passed && style ? { style: checkStyle(playerPath) } : {}),
+    ...(passed && style ? { style: checkStyle(playerPath, { lang }) } : {}),
   };
 }
 
@@ -183,6 +190,9 @@ export function judgeQuest(db, saveId, questId, verdict, note = null, { playerDi
       hints === 0 ? 'clean_solve_no_hints' : 'clean_solve',
       `solved ${quest.id}`,
     );
+    healForSolve(db, saveId);
+    addGold(db, saveId, quest.complexity * GOLD_PER_COMPLEXITY);
+    grantItem(db, saveId, { source: 'quest', questId: quest.id });
     return { solved: true, honor };
   });
 }
@@ -194,11 +204,28 @@ export function revokeSolve(db, saveId, questId, note = null) {
   return inTransaction(db, () => {
     const epoch = epochOf(db, saveId);
     const solve = db
-      .prepare('SELECT id, revoked_at FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
+      .prepare('SELECT id, revoked_at, complexity FROM quest_solves WHERE save_id = ? AND quest_id = ? AND epoch = ?')
       .get(saveId, quest.id, epoch);
     if (!solve) throw new Error(`Quest "${quest.id}" is not solved in this epoch, so there is nothing to revoke.`);
     if (solve.revoked_at !== null) throw new Error(`The solve of "${quest.id}" is already revoked.`);
     db.prepare('UPDATE quest_solves SET revoked_at = ? WHERE id = ?').run(now(), solve.id);
+    // The gold and the item this solve gave go back too. Gold already spent is not taken below zero.
+    addGold(db, saveId, -solve.complexity * GOLD_PER_COMPLEXITY);
+    revokeQuestItem(db, saveId, quest.id);
+    // Take back the bonus this solve really paid, so being caught late costs the same as being
+    // caught at judging. Then the cheat penalty.
+    const paid = db
+      .prepare(
+        "SELECT delta FROM honor_events WHERE save_id = ? AND kind IN ('clean_solve', 'clean_solve_no_hints') AND reason = ? ORDER BY id DESC LIMIT 1",
+      )
+      .get(saveId, `solved ${quest.id}`);
+    if (paid && paid.delta > 0) {
+      addHonorEvent(db, saveId, {
+        delta: -paid.delta,
+        kind: 'revoke_bonus',
+        reason: `took back the bonus for ${quest.id}`,
+      });
+    }
     return {
       revoked: true,
       honor: applyHonorRule(db, saveId, 'cheat', note ?? `cheated on ${quest.id}, found after the solve`),

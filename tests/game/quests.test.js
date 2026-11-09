@@ -8,6 +8,7 @@ import { startQuest, checkQuest, judgeQuest, logHint, getProgress, revokeSolve }
 import { knockOut } from '../../game/knockouts.js';
 import { talk } from '../../game/world.js';
 import { QUESTS } from '../../quests/index.js';
+import { questText } from '../../quests/text/index.js';
 import { createSave, createHero, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld } from '../../game/world.js';
 import { getHonor, getHonorHistory } from '../../game/honor.js';
@@ -48,7 +49,7 @@ test('startQuest writes the stub once and never overwrites the players work', ()
   const { playerDir } = setup();
   const first = startQuest('dice-roll', { playerDir });
   assert.equal(first.created, true);
-  assert.equal(readFileSync(first.file, 'utf8'), QUESTS[0].stub);
+  assert.equal(readFileSync(first.file, 'utf8'), questText('dice-roll', 'en').stub);
   assert.ok(first.brief.length > 0);
   writeFileSync(first.file, '// my work\n');
   const second = startQuest('dice-roll', { playerDir });
@@ -323,11 +324,19 @@ test('a late cheated verdict revokes a judged solve, once, with the cheat penalt
 
   const revoked = revokeSolve(db, saveId, 'dice-roll', 'copied the dice file');
   assert.equal(revoked.revoked, true);
-  assert.equal(getHonor(db, saveId), 8 - 15);
+  assert.equal(getHonor(db, saveId), 8 - 8 - 15);
   assert.deepEqual(getProgress(db, saveId).solved, []);
-  assert.equal(getHonorHistory(db, saveId).at(-1).kind, 'cheat');
+  assert.deepEqual(
+    getHonorHistory(db, saveId)
+      .slice(-2)
+      .map((e) => [e.kind, e.delta]),
+    [
+      ['revoke_bonus', -8],
+      ['cheat', -15],
+    ],
+  );
   assert.throws(() => revokeSolve(db, saveId, 'dice-roll', 'again'), /already revoked/i);
-  assert.equal(getHonor(db, saveId), 8 - 15);
+  assert.equal(getHonor(db, saveId), 8 - 8 - 15);
 });
 
 test('only a solved quest of this epoch can be revoked', () => {
@@ -381,4 +390,47 @@ test('a failure while revoking leaves the solve and the honor alone', () => {
   db.exec('DROP TRIGGER boom');
   assert.deepEqual(getProgress(db, saveId).solved, ['dice-roll']);
   assert.equal(getHonor(db, saveId), 8);
+});
+
+test('being caught late costs the same as being caught at judging, once the quest is solved honestly', () => {
+  const late = setup();
+  late.put('dice-roll');
+  checkQuest(late.db, late.saveId, 'dice-roll', late.opts);
+  late.judge('dice-roll', 'clean');
+  revokeSolve(late.db, late.saveId, 'dice-roll', 'cheated');
+  checkQuest(late.db, late.saveId, 'dice-roll', late.opts);
+  late.judge('dice-roll', 'clean');
+
+  const early = setup();
+  early.put('dice-roll');
+  checkQuest(early.db, early.saveId, 'dice-roll', early.opts);
+  early.judge('dice-roll', 'cheated');
+  checkQuest(early.db, early.saveId, 'dice-roll', early.opts);
+  early.judge('dice-roll', 'clean');
+
+  assert.equal(getHonor(late.db, late.saveId), getHonor(early.db, early.saveId));
+  assert.equal(getHonor(late.db, late.saveId), -15 + 8);
+});
+
+test('a revoke takes back only the bonus that was really paid, so a solve with hints loses +5', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  logHint(db, saveId, 'dice-roll', 'npc_speech', 'the mentor hinted');
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  assert.equal(getHonor(db, saveId), 5);
+  revokeSolve(db, saveId, 'dice-roll', 'cheated');
+  assert.equal(getHonor(db, saveId), 5 - 5 - 15);
+});
+
+test('a cheated verdict leaves a knocked out NPC asleep, and only a clean solve wakes them', () => {
+  const { db, saveId, opts, put, judge } = setup();
+  knockOut(db, saveId, 'N1');
+  put('dice-roll');
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'cheated');
+  assert.throws(() => talk(db, saveId, 'N1'), /knocked out/i);
+  checkQuest(db, saveId, 'dice-roll', opts);
+  judge('dice-roll', 'clean');
+  assert.equal(talk(db, saveId, 'N1').npc.slot, 'N1');
 });

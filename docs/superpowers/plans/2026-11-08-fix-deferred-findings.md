@@ -32,7 +32,7 @@ Owner decisions:
 - B7: quest commands require a hero, a finished world, and the earlier quests solved this epoch. NPC awake and location are not checked.
 - B1: a quest fight is legitimate for any quest not solved this epoch.
 - B5: the ending needs the boss win later than the latest quest solve in the current epoch.
-- README: description, then How to play, then tech stack, then everything developer related. The Ukrainian README has no developer content. Language options cannot be GitHub tabs, so a language switcher line opens both READMEs.
+- README: description, then How to play, then tech stack, then everything developer related. The Ukrainian README has no developer content. Language options cannot be GitHub tabs, so a language switcher line opens both READMEs. Ruling during the build: the switcher is added together with the Ukrainian README in the multi-language plan (Task 8), so it never links to a file that does not exist yet.
 
 Calls made while planning (Gogi can reject any):
 - D1: the child answers a never-settling promise through a `beforeExit` handler with an error result `never-settled`.
@@ -50,7 +50,7 @@ Calls made while planning (Gogi can reject any):
 4. A quest added after the ending was unlocked (Task 2) and a revoked solve (Task 3).
 5. The file path the player is told to edit, with `JSDND_PLAYER_DIR` set (Task 2).
 6. A player function that never finishes, for quests and for moves (Task 4).
-7. README section order, the language switcher links, and no developer content in the Ukrainian README (Task 6).
+7. README section order (Task 6). The switcher links and the Ukrainian README order are pinned in the multi-language plan, Task 8.
 
 ## Files
 
@@ -171,9 +171,9 @@ Calls made while planning (Gogi can reject any):
 - Test: `tests/readme.test.js` (new), `tests/license.test.js`, `tests/game/play-command.test.js`
 
 **Interfaces:**
-- Produces: `README.md` order is: a language switcher line (`English | Українська`, the second linking to `README.uk.md`), title and general description, `## How to play`, `## Tech stack`, then the developer part (status, feature list, try the scripts, repo layout, how it gets built, contributing, license). "How to play" holds requirements, `bash setup.sh`, `/play` in Claude Code, what a session looks like, the stamina bar and honor in one paragraph each, and the "never edit `game/dice.js`" note. The combat example uses `npc warn`, `fight begin`, and `fight attack` instead of `fight start`.
+- Produces: `README.md` order is: title and general description, `## How to play`, `## Tech stack`, then the developer part (status, feature list, try the scripts, repo layout, how it gets built, contributing, license). "How to play" holds requirements, `bash setup.sh`, `/play` in Claude Code, what a session looks like, the stamina bar and honor in one paragraph each, and the "never edit `game/dice.js`" note. The combat example uses `npc warn`, `fight begin`, and `fight attack` instead of `fight start`.
 
-- [ ] **Step 1: Write the failing tests.** Section order by heading index (description before How to play before Tech stack before the feature list and repo layout, license last), the first line is the switcher with a link to `README.uk.md`, no `fight start` in the README, the existing README tests (license section, throwaway save text, stamina and ending rows) still pass.
+- [ ] **Step 1: Write the failing tests.** Section order by heading index (description before How to play before Tech stack before the feature list and repo layout, license last), no `fight start` in the README, the existing README tests (license section, throwaway save text, stamina and ending rows) still pass.
 - [ ] **Step 2: Run to see them fail.**
 - [ ] **Step 3: Restructure the README** (no content invented: move and tighten what exists, write only the short "How to play"). Update the register statuses for everything this plan fixed and mark F2 fixed. Edit Task 8 of the multi-language plan so `README.uk.md` starts with the same switcher linking back to `README.md`, and follows the order: description, how to play, requirements and setup, license, link to the English README, and no developer content.
 - [ ] **Step 4: Run the full suite, lint, format check, and the dash scan** (`grep -rnP '[\x{2013}\x{2014}]' game quests tests dev .claude docs README.md CLAUDE.md setup.sh` prints nothing).

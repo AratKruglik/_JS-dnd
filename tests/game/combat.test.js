@@ -12,6 +12,7 @@ const sequence = (...values) => {
 };
 
 const hero = {
+  heroClass: 'fighter',
   abilities: {
     STR: { base: 8, traitAdjust: 0 },
     DEX: { base: 15, traitAdjust: 2 },

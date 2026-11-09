@@ -1,8 +1,11 @@
 // Claude Code runs this as the project status line. It reads the session JSON on stdin, stores
-// the real 5 hour usage reading for the save, and prints one line. It must never throw or hang.
+// the real 5 hour usage reading for the save, and prints the hero line and the stamina bar. It must never
+// throw or hang.
 import { existsSync, readFileSync } from 'node:fs';
 import { defaultGameDbPath, openGameDb } from './db.js';
 import { parsePayload, recordReading, currentStamina, renderBar } from './stamina.js';
+import { DEFAULT_LANGUAGE, effectiveLanguage, t } from './i18n.js';
+import { heroLineInfo, renderHeroLine } from './hero-line.js';
 
 function readPayload() {
   try {
@@ -15,19 +18,40 @@ function readPayload() {
 function line() {
   const reading = parsePayload(readPayload());
   const now = Date.now();
+  // The language is the save's. With no database or save the bar speaks English.
+  let lang = DEFAULT_LANGUAGE;
+  let db = null;
+  let save = null;
+  if (existsSync(defaultGameDbPath())) {
+    try {
+      // A status line must not wait on a busy game command or change the schema.
+      db = openGameDb(undefined, { busyTimeoutMs: 300, runMigrations: false });
+      save = db.prepare('SELECT id FROM saves ORDER BY id LIMIT 1').get();
+      if (save) lang = effectiveLanguage(db, save.id);
+    } catch {
+      save = null;
+    }
+  }
+  // The hero line goes above the bar. If anything about it fails, such as a database from before the
+  // vitals columns, the bar is drawn alone.
+  let heroLine = '';
+  if (save) {
+    try {
+      const info = heroLineInfo(db, save.id, now);
+      if (info) heroLine = `${renderHeroLine(info, { color: true, lang })}\n`;
+    } catch {
+      heroLine = '';
+    }
+  }
   const fromPayload = reading
-    ? renderBar({ ...reading, estimated: false }, now, 10, { color: true })
-    : 'STAMINA unknown';
-  if (!existsSync(defaultGameDbPath())) return fromPayload;
+    ? renderBar({ ...reading, estimated: false }, now, 10, { color: true, lang })
+    : t(lang, 'stamina.unknown');
+  if (!save) return fromPayload;
   try {
-    // A status line must not wait on a busy game command or change the schema.
-    const db = openGameDb(undefined, { busyTimeoutMs: 300, runMigrations: false });
-    const save = db.prepare('SELECT id FROM saves ORDER BY id LIMIT 1').get();
-    if (!save) return fromPayload;
     if (reading) recordReading(db, save.id, reading, now);
-    return renderBar(currentStamina(db, save.id, now), now, 10, { color: true });
+    return heroLine + renderBar(currentStamina(db, save.id, now), now, 10, { color: true, lang });
   } catch {
-    return fromPayload;
+    return heroLine + fromPayload;
   }
 }
 
@@ -35,6 +59,8 @@ let text;
 try {
   text = line();
 } catch {
+  // The last resort, for when even the language lookup failed, so it cannot come from the catalog.
+  // eslint-disable-next-line no-restricted-syntax
   text = 'STAMINA unknown';
 }
 process.stdout.write(`${text}\n`);

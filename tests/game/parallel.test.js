@@ -135,3 +135,55 @@ test('a move checked twice at once applies one sure hit and refuses the second',
   const { enemy_hp: hp } = db.prepare('SELECT enemy_hp FROM fights WHERE id = ?').get(fight.fightId);
   assert.equal(hp, 26);
 });
+
+test('a flee that waited for the lock refuses a fight that was already closed, and logs nothing', async () => {
+  const { db, dbPath, saveId } = game();
+  const fight = beginFight(db, saveId, { npcSlot: 'N1', tier: 'tough', aggressor: 'hero', rng: LOW });
+  const logBefore = db.prepare('SELECT COUNT(*) AS n FROM fight_log WHERE fight_id = ?').get(fight.fightId).n;
+  const result = await whileLocked(dbPath, 'flee', {}, (holder) =>
+    holder.prepare("UPDATE fights SET ended_at = 'now', outcome = 'fled' WHERE id = ?").run(fight.fightId),
+  );
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /no fight in progress/i);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM fight_log WHERE fight_id = ?').get(fight.fightId).n, logBefore);
+});
+
+test('a second proposal that waited for the lock is refused while the first move is open', async () => {
+  const { db, dbPath, saveId } = game();
+  const fight = beginFight(db, saveId, { npcSlot: 'N1', tier: 'tough', aggressor: 'hero', rng: LOW });
+  const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-parallel-propose-'));
+  const problem = {
+    title: 'Add',
+    brief: 'Write solve(a, b).',
+    difficulty: 1,
+    tests: [
+      { args: [1, 2], expected: 3 },
+      { args: [2, 2], expected: 4 },
+      { args: [5, 5], expected: 10 },
+    ],
+    reference: 'export function solve(a, b) { return a + b; }',
+  };
+  const result = await whileLocked(dbPath, 'propose', { problem, playerDir }, (holder) =>
+    holder
+      .prepare(
+        "INSERT INTO fight_moves (fight_id, created_at, title, brief, difficulty, tests, status) VALUES (?, 'now', 't', 'b', 1, '[]', 'open')",
+      )
+      .run(fight.fightId),
+  );
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /already an open move/i);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM fight_moves WHERE status = 'open'").get().n, 1);
+});
+
+test('an up to date database is opened without waiting for the write lock', async () => {
+  const { dbPath } = game();
+  const holder = new DatabaseSync(dbPath);
+  holder.exec('PRAGMA busy_timeout = 5000');
+  holder.exec('BEGIN IMMEDIATE');
+  const started = Date.now();
+  const result = await runChild(dbPath, 'open');
+  holder.exec('ROLLBACK');
+  holder.close();
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(Date.now() - started < 2500, 'opening waited for the lock');
+});

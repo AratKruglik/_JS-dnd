@@ -141,3 +141,29 @@ test('once the world is complete a second hero is refused with a readable messag
   assert.throws(() => createHeroFromChoices(db, saveId, { ...base, name: 'Other' }), /already have a hero/i);
   assert.equal(getHero(db, saveId).name, 'Bilbo');
 });
+
+test('a hero made with Ukrainian names is stored with the English keys', () => {
+  const { db, saveId } = setup();
+  createHeroFromChoices(db, saveId, { name: 'Більбо', race: 'гобіт', heroClass: 'чарівник', scores: SPREAD });
+  const hero = getHero(db, saveId);
+  assert.deepEqual([hero.race, hero.heroClass], ['halfling', 'wizard']);
+  assert.deepEqual(hero.abilities.DEX, { base: 15, traitAdjust: 2 });
+});
+
+test('a custom Ukrainian race still needs a description and is stored as typed', () => {
+  const { db, saveId } = setup();
+  assert.throws(
+    () => createHeroFromChoices(db, saveId, { name: 'Зед', race: 'Зорбіанин', heroClass: 'плут', scores: SPREAD }),
+    /needs a description/i,
+  );
+  createHeroFromChoices(db, saveId, {
+    name: 'Зед',
+    race: 'Зорбіанин',
+    heroClass: 'плут',
+    scores: SPREAD,
+    bonuses: { INT: 2, STR: -1 },
+    raceDescription: 'Скляна шкіра, що гуде.',
+  });
+  const hero = getHero(db, saveId);
+  assert.deepEqual([hero.race, hero.heroClass, hero.raceDescription], ['Зорбіанин', 'rogue', 'Скляна шкіра, що гуде.']);
+});

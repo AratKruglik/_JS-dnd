@@ -18,8 +18,8 @@ const script = (...pairs) => {
   };
 };
 
-// Hero: halfling, DEX 17 (+3), CON 14 (+2) -> 12 HP, AC 13, attack +5, damage 1d8+3.
-const HERO = { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue', scores: [8, 15, 14, 8, 8, 15] };
+// Hero: halfling fighter (d10), DEX 17 (+3), CON 14 (+2) -> 12 HP, AC 13, attack +5, damage 1d8+3.
+const HERO = { name: 'Bilbo', race: 'hobbit', heroClass: 'fighter', scores: [8, 15, 14, 8, 8, 15] };
 
 function ready({ hero = true, world = true } = {}) {
   const db = freshDb();
@@ -321,4 +321,24 @@ test('a quest solved in an earlier epoch can host a fight again after a reset', 
     rng: heroFirst(),
   });
   assert.equal(open.status, 'open');
+});
+
+test('a roll that fails in the middle of an attack rolls the whole attack back', () => {
+  const { db, saveId } = ready();
+  beginFight(db, saveId, { npcSlot: 'N1', tier: 'normal', aggressor: 'hero', rng: heroFirst() });
+  const before = {
+    rolls: count(db, 'dice_rolls'),
+    log: count(db, 'fight_log'),
+    hp: getFightState(db, saveId).enemy.hp,
+  };
+  let calls = 0;
+  const failing = () => {
+    calls += 1;
+    if (calls === 3) throw new Error('the dice broke');
+    return 0.7;
+  };
+  assert.throws(() => heroAttack(db, saveId, { rng: failing }), /dice broke/);
+  assert.equal(count(db, 'dice_rolls'), before.rolls);
+  assert.equal(count(db, 'fight_log'), before.log);
+  assert.equal(getFightState(db, saveId).enemy.hp, before.hp);
 });

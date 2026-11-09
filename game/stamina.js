@@ -1,6 +1,7 @@
 // Stamina is the player's real 5 hour usage window. This file holds the pure math: the tiredness
 // bands (one table, tune it here), reading the status line payload, and drawing the bar.
 import { inTransaction } from './db.js';
+import { t } from './i18n.js';
 
 export const WINDOW_MS = 5 * 60 * 60 * 1000;
 export const COLLAPSE_AT = 98;
@@ -37,29 +38,39 @@ export function parsePayload(payload) {
   return { usedPercent, resetsAt };
 }
 
-function untilReset(resetsAt, nowMs) {
+function untilReset(resetsAt, nowMs, lang) {
   const minutes = Math.max(0, Math.round((resetsAt * 1000 - nowMs) / 60000));
-  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}m`;
+  return t(lang, 'stamina.duration', {
+    hours: Math.floor(minutes / 60),
+    minutes: String(minutes % 60).padStart(2, '0'),
+  });
 }
 
 const ANSI = { green: 32, yellow: 33, red: 31 };
 
-// Green from 100 to 60 left, yellow from 59 to 40, red from 39 to 0, judged on the same whole
-// number the bar shows.
+// Green from 100 to 60 left, yellow from 59 to 40, red from 39 to 0, judged on a whole number.
+export const colorForLeft = (left) => (left >= 60 ? 'green' : left >= 40 ? 'yellow' : 'red');
+export const paint = (color, text) => `\u001b[${ANSI[color]}m${text}\u001b[0m`;
+
 export function barColor(usedPercent) {
-  const left = Math.round(100 - clampPercent(usedPercent));
-  return left >= 60 ? 'green' : left >= 40 ? 'yellow' : 'red';
+  return colorForLeft(Math.round(100 - clampPercent(usedPercent)));
 }
 
-export function renderBar({ usedPercent, resetsAt, estimated }, nowMs, width = 10, { color = false } = {}) {
+export function renderBar(
+  { usedPercent, resetsAt, estimated },
+  nowMs,
+  width = 10,
+  { color = false, lang = 'en' } = {},
+) {
   const left = Math.round(100 - clampPercent(usedPercent));
   const filled = Math.round((left / 100) * width);
   const bar = `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`;
-  const reset = `resets in ${untilReset(resetsAt, nowMs)}`;
-  const line = estimated
-    ? `STAMINA ~${bar} ~${left}% left (est.) | ${reset}`
-    : `STAMINA ${bar} ${left}% left | ${reset}`;
-  return color ? `\u001b[${ANSI[barColor(usedPercent)]}m${line}\u001b[0m` : line;
+  const line = t(lang, estimated ? 'stamina.barEstimated' : 'stamina.bar', {
+    bar,
+    left,
+    reset: untilReset(resetsAt, nowMs, lang),
+  });
+  return color ? paint(barColor(usedPercent), line) : line;
 }
 
 const FRESH_MS = 15 * 60 * 1000;

@@ -1,5 +1,6 @@
 // Child process entry for combat moves: import the player's file, call its exported solve()
-// for each test read from stdin, and print one token-prefixed result line.
+// for each test read from stdin, and print one token-prefixed result line. Messages travel as
+// { key, params } parts, and the parent renders them in the language of the save.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -15,6 +16,8 @@ const firstLine = (error) =>
   String(error?.message ?? error)
     .split('\n')[0]
     .trim();
+const part = (key, params = {}) => ({ key, params });
+const raw = (error) => part('check.raw.message', { message: firstLine(error) });
 const show = (value) => (value === undefined ? 'undefined' : JSON.stringify(value));
 const call = (args) => `solve(${args.map(show).join(', ')})`;
 
@@ -25,12 +28,7 @@ function emit(result) {
 
 // If the event loop runs dry before a result was printed, something player code returned (or a
 // top-level await in their file) will never settle. Say so, instead of exiting without a word.
-process.once('beforeExit', () =>
-  emit({
-    status: 'error',
-    message: 'Your code never finished: a promise it returned never settled, so the check had no answer to read.',
-  }),
-);
+process.once('beforeExit', () => emit({ status: 'error', message: part('check.neverSettled.message') }));
 
 try {
   const tests = JSON.parse(stdin.slice(cut + 1));
@@ -38,26 +36,31 @@ try {
   try {
     mod = await import(pathToFileURL(resolve(playerPath)).href);
   } catch (error) {
-    emit({ status: 'error', message: firstLine(error) });
+    emit({ status: 'error', message: raw(error) });
   }
   if (mod) {
     if (typeof mod.solve !== 'function') {
-      emit({ status: 'error', message: 'Your file must export a function named solve.' });
+      emit({ status: 'error', message: part('check.missingSolve.message') });
     } else {
-      let outcome = { status: 'pass', expected: 'every test passes', got: 'every test passes' };
+      let outcome = {
+        status: 'pass',
+        expected: part('check.pass.everyTest'),
+        got: part('check.pass.everyTest'),
+      };
       for (const { args, expected } of tests) {
         let got;
         try {
           got = await mod.solve(...structuredClone(args));
         } catch (error) {
-          outcome = { status: 'error', message: `solve threw: ${firstLine(error)}` };
+          outcome = { status: 'error', message: part('check.solveThrew.message', { message: firstLine(error) }) };
           break;
         }
         if (!isDeepStrictEqual(got, expected)) {
+          const params = { call: call(args), wanted: show(expected), gave: show(got) };
           outcome = {
             status: 'fail',
-            expected: `${call(args)} gives ${show(expected)}`,
-            got: `${call(args)} gave ${show(got)}`,
+            expected: part('check.wrongResult.expected', params),
+            got: part('check.wrongResult.got', params),
           };
           break;
         }
@@ -66,5 +69,5 @@ try {
     }
   }
 } catch (error) {
-  emit({ status: 'error', message: firstLine(error) });
+  emit({ status: 'error', message: raw(error) });
 }

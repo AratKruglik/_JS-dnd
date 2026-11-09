@@ -4,6 +4,7 @@ import { inTransaction } from './db.js';
 import { openFight, heroAttack, loseHeroTurn } from './combat-engine.js';
 import { runMoveTests, validateMoveProblem } from './move-runner.js';
 import { defaultPlayerDir } from './quests.js';
+import { effectiveLanguage, t } from './i18n.js';
 
 const now = () => new Date().toISOString();
 const comment = (text) =>
@@ -53,11 +54,12 @@ export function proposeMove(db, saveId, problem, { playerDir = defaultPlayerDir(
         ).lastInsertRowid,
     );
     mkdirSync(playerDir, { recursive: true });
+    const lang = effectiveLanguage(db, saveId);
     const file = join(playerDir, `move-${moveId}.js`);
     const temp = `${file}.tmp`;
     writeFileSync(
       temp,
-      `${comment(`Combat move: ${problem.title.trim()}`)}\n${comment(problem.brief.trim())}\n// Export a function named solve.\nexport function solve() {\n  // your code here\n}\n`,
+      `${comment(t(lang, 'move.stub.title', { title: problem.title.trim() }))}\n${comment(problem.brief.trim())}\n${comment(t(lang, 'move.stub.export'))}\nexport function solve() {\n  ${comment(t(lang, 'move.stub.code'))}\n}\n`,
     );
     if (existsSync(file)) renameSync(file, join(playerDir, `move-${moveId}.old.js`));
     renameSync(temp, file);
@@ -79,7 +81,11 @@ export function checkMove(db, saveId, moveId, { playerDir = defaultPlayerDir(), 
   // The player's code can run for seconds, so it runs outside the lock. The move is read again
   // under the lock before anything is applied, so two checks at once cannot both count.
   const tests = JSON.parse(readMove().tests);
-  const check = runMoveTests(join(playerDir, `move-${moveId}.js`), tests, timeoutMs ? { timeoutMs } : undefined);
+  const lang = effectiveLanguage(db, saveId);
+  const check = runMoveTests(join(playerDir, `move-${moveId}.js`), tests, {
+    ...(timeoutMs ? { timeoutMs } : {}),
+    lang,
+  });
   const won = check.status === 'pass';
   return inTransaction(db, () => {
     readMove();

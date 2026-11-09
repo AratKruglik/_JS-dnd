@@ -648,12 +648,13 @@ test('fight flee ends the fight, and bad tiers or aggressors exit 1', () => {
   const { run } = readyGame();
   assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'giant', '--aggressor', 'hero').status, 1);
   assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'bystander').status, 1);
-  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero').status, 0);
+  assert.equal(run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero').status, 0);
   assert.equal(run('fight', 'flee').json.fight.status, 'fled');
 });
 
 test('an advanced move: propose from stdin, then a correct solution wins and a wrong one loses the turn', () => {
-  const { run, runInput } = readyGame();
+  const game = readyGame();
+  const { run, runInput } = game;
   run('fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero');
   const proposal = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   assert.equal(proposal.status, 0, proposal.stderr);
@@ -664,7 +665,7 @@ test('an advanced move: propose from stdin, then a correct solution wins and a w
   assert.deepEqual([won.json.moveStatus, won.json.fight.status], ['won', 'won']);
 
   run('go', 'L2');
-  run('fight', 'begin', '--npc', 'N2', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N2');
   const second = runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   writeFileSync(second.json.file, 'export function solve(a, b) { return a - b; }');
   const lost = run('move', 'check', String(second.json.moveId));
@@ -763,7 +764,7 @@ test('a tired hero swings with the attack penalty from the current band', () => 
 
 test('collapse blocks every play command with the place and hours, and leaves read-only ones alone', () => {
   const game = readyGame();
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   setReading(game, 99, 150);
   const blocked = [
     ['go', 'L2'],
@@ -805,7 +806,7 @@ test('collapse blocks every play command with the place and hours, and leaves re
 
 test('the open fight resumes once the reading is from a window that has reset', () => {
   const game = readyGame();
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   setReading(game, 99);
   assert.equal(game.run('fight', 'attack').status, 1);
   setReading(game, 99, -5);
@@ -861,7 +862,7 @@ test('a tired hero is hit more easily from the first enemy turn of fight begin',
 test('move check uses the tired attack bonus for the sure hit it grants', () => {
   const game = readyGame();
   setReading(game, 85);
-  game.run('fight', 'begin', '--npc', 'N1', '--tier', 'tough', '--aggressor', 'hero');
+  stagedFight(game, 'N1');
   const proposal = game.runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-');
   writeFileSync(proposal.json.file, 'export function solve(a, b) { return a + b; }');
   const won = game.run('move', 'check', String(proposal.json.moveId));
@@ -872,6 +873,12 @@ test('move check uses the tired attack bonus for the sure hit it grants', () => 
   const d20 = JSON.parse(db.prepare("SELECT results FROM dice_rolls WHERE context = 'hero attack'").get().results)[0];
   assert.equal(total - d20, 3);
 });
+
+// A fight the tests can trust: the hero goes first and the enemy never lands a blow, so real dice
+// can never end it before the test gets to look at it. Built through the library, then driven by the CLI.
+function stagedFight(game, npcSlot, tier = 'tough') {
+  return beginFight(game.db(), 1, { npcSlot, tier, aggressor: 'hero', rng: () => 0.01 });
+}
 
 function solveAllQuests(game) {
   const db = game.db();
@@ -1048,4 +1055,290 @@ test('quest revoke is blocked while the hero is collapsed', () => {
   const result = game.run('quest', 'revoke', 'dice-roll', 'x');
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(result.stderr.trim()).collapsed, true);
+});
+
+test('tampering with the dice blocks all seven combat commands with exit 2', () => {
+  const game = readyGame();
+  appendFileSync(game.env.JSDND_DICE_PATH, '\n// cheat\n');
+  const commands = [
+    ['npc', 'warn', 'N1', 'x'],
+    ['fight', 'begin', '--npc', 'N1', '--tier', 'weak', '--aggressor', 'hero'],
+    ['fight', 'attack'],
+    ['fight', 'flee'],
+    ['fight', 'state'],
+    ['move', 'propose', '--data', '-'],
+    ['move', 'check', '1'],
+  ];
+  for (const args of commands) assert.equal(game.run(...args).status, 2, args.join(' '));
+});
+
+test('lang show and lang set work, reject bad input, and are not blocked by a collapse', () => {
+  const game = readyGame();
+  const shown = game.run('lang', 'show').json;
+  assert.deepEqual([shown.language, shown.effective], [null, 'en']);
+  assert.deepEqual(shown.available, [
+    { code: 'en', name: 'English' },
+    { code: 'uk', name: 'Українська' },
+  ]);
+  const set = game.run('lang', 'set', 'uk');
+  assert.equal(set.status, 0, set.stderr);
+  assert.deepEqual([set.json.language, set.json.effective], ['uk', 'uk']);
+  assert.match(set.json.message, /Мову змінено/);
+  assert.equal(game.run('lang', 'show').json.language, 'uk');
+  for (const args of [
+    ['lang'],
+    ['lang', 'set'],
+    ['lang', 'set', 'de'],
+    ['lang', 'set', 'uk', 'extra'],
+    ['lang', 'show', 'x'],
+    ['lang', 'nope'],
+  ]) {
+    assert.equal(game.run(...args).status, 1, args.join(' '));
+  }
+  assert.equal(game.run('lang', 'show').json.language, 'uk');
+  assert.match(game.run().stderr, /lang show/);
+  setReading(game, 99);
+  assert.equal(game.run('lang', 'show').status, 0);
+  assert.equal(game.run('lang', 'set', 'en').status, 0);
+});
+
+test('voice lint follows the language of the save', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('voice', 'lint', 'Чудове запитання, мандрівнику.').json.hits, []);
+  game.run('lang', 'set', 'uk');
+  assert.deepEqual(game.run('voice', 'lint', 'Чудове запитання, мандрівнику.').json, {
+    ok: true,
+    lint: false,
+    hits: ['чудове запитання'],
+  });
+  assert.deepEqual(game.run('voice', 'lint', 'Великий міст зруйновано.').json.hits, []);
+});
+
+test('voice lint works before there is any save, in English', () => {
+  const { run } = install();
+  assert.deepEqual(run('voice', 'lint', 'Great question, traveler.').json.hits, ['great question']);
+});
+
+test('lang show hands the Master the pack of the language in use, and the pack follows lang set', () => {
+  const game = readyGame();
+  const english = game.run('lang', 'show').json.pack;
+  assert.deepEqual(Object.keys(english).sort(), ['bannedPhrases', 'glossary', 'roast', 'voiceTips']);
+  assert.ok(english.bannedPhrases.includes('great question'));
+  assert.deepEqual(english.glossary, []);
+
+  game.run('lang', 'set', 'uk');
+  const ukrainian = game.run('lang', 'show').json.pack;
+  assert.ok(ukrainian.bannedPhrases.includes('чудове запитання'));
+  assert.ok(ukrainian.glossary.some((e) => e.english === 'closure'));
+  assert.match(ukrainian.roast.rule, /нещадно/);
+
+  game.run('lang', 'set', 'en');
+  assert.ok(game.run('lang', 'show').json.pack.bannedPhrases.includes('great question'));
+});
+
+test('lang set returns the pack too, so the Master has it the moment the language changes', () => {
+  const game = readyGame();
+  const set = game.run('lang', 'set', 'uk').json;
+  assert.ok(set.pack.glossary.length > 10);
+});
+
+test('rules races and classes show display names and aliases for the language, with identical keys and bonuses', () => {
+  const game = readyGame();
+  const english = game.run('rules', 'races').json;
+  const halflingEn = english.races.find((r) => r.name === 'halfling');
+  assert.deepEqual([halflingEn.display, halflingEn.aliases.includes('hobbit')], ['Halfling', true]);
+
+  game.run('lang', 'set', 'uk');
+  const ukrainian = game.run('rules', 'races').json;
+  const halflingUk = ukrainian.races.find((r) => r.name === 'halfling');
+  assert.deepEqual([halflingUk.display, halflingUk.aliases.includes('гобіт')], ['напіврослик', true]);
+  assert.deepEqual(
+    ukrainian.races.map((r) => [r.name, r.bonuses]),
+    english.races.map((r) => [r.name, r.bonuses]),
+  );
+
+  const classes = game.run('rules', 'classes').json;
+  assert.deepEqual(classes.classes.slice().sort(), game.run('rules', 'classes').json.classes.slice().sort());
+  assert.equal(classes.details.find((c) => c.name === 'wizard').display, 'чарівник');
+  assert.equal(typeof classes.aliases, 'object');
+});
+
+test('a hero created with Ukrainian names is shown with display names, and English typed in a Ukrainian game works', () => {
+  const game = install();
+  game.run('init');
+  game.run('lang', 'set', 'uk');
+  const made = game.run(
+    'hero',
+    'create',
+    '--name',
+    'Більбо',
+    '--race',
+    'гобіт',
+    '--class',
+    'чарівник',
+    '--scores',
+    '8,15,14,8,8,15',
+  );
+  assert.equal(made.status, 0, made.stderr);
+  assert.deepEqual([made.json.hero.race, made.json.hero.heroClass], ['halfling', 'wizard']);
+  assert.deepEqual([made.json.hero.raceDisplay, made.json.hero.classDisplay], ['напіврослик', 'чарівник']);
+  const shown = game.run('hero', 'show').json.hero;
+  assert.deepEqual([shown.raceDisplay, shown.classDisplay], ['напіврослик', 'чарівник']);
+
+  game.run('lang', 'set', 'en');
+  const shownEn = game.run('hero', 'show').json.hero;
+  assert.deepEqual([shownEn.race, shownEn.raceDisplay, shownEn.classDisplay], ['halfling', 'Halfling', 'Wizard']);
+
+  const other = install();
+  other.run('init');
+  other.run('lang', 'set', 'uk');
+  const typedEnglish = other.run(
+    'hero',
+    'create',
+    '--name',
+    'Bilbo',
+    '--race',
+    'hobbit',
+    '--class',
+    'wizard',
+    '--scores',
+    '8,15,14,8,8,15',
+  );
+  assert.equal(typedEnglish.status, 0, typedEnglish.stderr);
+  assert.equal(typedEnglish.json.hero.raceDisplay, 'напіврослик');
+});
+
+// Every key path of a JSON value, so two answers can be compared by shape and not by text.
+function shape(value, path = '') {
+  if (Array.isArray(value)) return value.length ? shape(value[0], `${path}[]`) : [`${path}[]`];
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .flatMap((key) => shape(value[key], `${path}.${key}`));
+  }
+  return [path];
+}
+
+test('the quest and move answers have the same shape in both languages, and the ids never change', () => {
+  const runIn = (language) => {
+    const game = readyGame();
+    game.run('lang', 'set', language);
+    markSolvedBefore(game.db(), 1, 'string-shout');
+    const list = game.run('quest', 'list').json;
+    const started = game.run('quest', 'start', 'string-shout').json;
+    writeFileSync(started.file, 'export function shout(text) { return text; }\n');
+    const failed = game.run('quest', 'check', 'string-shout').json;
+    writeFileSync(started.file, 'export function shout(text) {\n  return `${text.trim().toUpperCase()}!`;\n}\n');
+    const passed = game.run('quest', 'check', 'string-shout').json;
+    stagedFight(game, 'N1');
+    const proposal = game.runInput(JSON.stringify(MOVE_PROBLEM), 'move', 'propose', '--data', '-').json;
+    writeFileSync(proposal.file, 'export function solve(a, b) { return a + b; }');
+    const moved = game.run('move', 'check', String(proposal.moveId)).json;
+    return { list, started, failed, passed, moved, proposal };
+  };
+  const english = runIn('en');
+  const ukrainian = runIn('uk');
+  for (const name of ['list', 'started', 'failed', 'passed', 'moved', 'proposal']) {
+    const strip = (value) => shape(JSON.parse(JSON.stringify(value, (k, v) => (k === 'log' ? undefined : v))));
+    assert.deepEqual(strip(ukrainian[name]), strip(english[name]), name);
+  }
+  assert.deepEqual(
+    ukrainian.list.quests.map((q) => q.id),
+    english.list.quests.map((q) => q.id),
+  );
+  assert.notEqual(ukrainian.list.quests[0].title, english.list.quests[0].title);
+  assert.match(ukrainian.failed.expected, /дає/);
+});
+
+test('the collapse line is plural for the hours left, in English and in Ukrainian', () => {
+  const game = readyGame();
+  const words = [];
+  for (const [language, minutes] of [
+    ['en', 30],
+    ['en', 100],
+    ['uk', 30],
+    ['uk', 100],
+    ['uk', 290],
+  ]) {
+    game.run('lang', 'set', language);
+    setReading(game, 99, minutes);
+    const error = JSON.parse(game.run('go', 'L2').stderr.trim());
+    assert.equal(error.collapsed, true);
+    assert.equal(typeof error.hours, 'number');
+    words.push(error.error.split(' ').slice(-2).join(' '));
+  }
+  assert.deepEqual(words, ['1 hour', '2 hours', '1 годину', '2 години', '5 годин']);
+});
+
+test('the Ukrainian collapse line names the place and keeps the machine fields', () => {
+  const game = readyGame();
+  game.run('lang', 'set', 'uk');
+  setReading(game, 99, 100);
+  const error = JSON.parse(game.run('go', 'L2').stderr.trim());
+  assert.deepEqual([error.collapsed, error.location, error.hours], [true, 'Place 1', 2]);
+  assert.match(error.error, /виснажений/);
+  assert.match(error.error, /«Place 1»/);
+});
+
+// ---- hero vitals, rest, and items
+const giveItem = (game) =>
+  game
+    .db()
+    .prepare(
+      "INSERT INTO inventory_items (save_id, source, quest_id, created_at) VALUES (1, 'quest', 'dice-roll', 'now')",
+    )
+    .run();
+
+test('hero show carries health, gold, and the item count', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('hero', 'show').json.vitals, { hp: 10, maxHp: 10, gold: 0, items: 0 });
+  giveItem(game);
+  game.db().prepare('UPDATE heroes SET hp = 4, gold = 7 WHERE save_id = 1').run();
+  const vitals = game.run('hero', 'show').json.vitals;
+  assert.deepEqual([vitals.hp >= 4, vitals.maxHp, vitals.gold, vitals.items], [true, 10, 7, 1]);
+});
+
+test('rest heals a hurt hero for gold at the start, and says why when it cannot', () => {
+  const game = readyGame();
+  const full = game.run('rest');
+  assert.equal(full.status, 1);
+  assert.match(JSON.parse(full.stderr.trim()).error, /full health/i);
+  game.db().prepare('UPDATE heroes SET hp = 4, hp_updated_at = ? WHERE save_id = 1').run(new Date().toISOString());
+  assert.match(JSON.parse(game.run('rest').stderr.trim()).error, /5 gold/);
+  game.db().prepare('UPDATE heroes SET gold = 20 WHERE save_id = 1').run();
+  const rested = game.run('rest');
+  assert.equal(rested.status, 0, rested.stderr);
+  assert.deepEqual(rested.json, { ok: true, hp: 10, maxHp: 10, gold: 15, cost: 5 });
+  assert.equal(game.run('rest', 'now').status, 1);
+});
+
+test('item list and item name work, reject extra arguments, and name an item only once', () => {
+  const game = readyGame();
+  assert.deepEqual(game.run('item', 'list').json, { ok: true, items: [] });
+  giveItem(game);
+  const named = game.run('item', 'name', '1', 'Rusty Lucky Die');
+  assert.equal(named.status, 0, named.stderr);
+  assert.deepEqual(named.json, { ok: true, id: 1, name: 'Rusty Lucky Die' });
+  const listed = game.run('item', 'list').json.items;
+  assert.deepEqual(
+    listed.map((i) => [i.id, i.name, i.source, i.questId]),
+    [[1, 'Rusty Lucky Die', 'quest', 'dice-roll']],
+  );
+  assert.equal(game.run('item', 'name', '1', 'Again').status, 1);
+  assert.equal(game.run('item', 'name', '1').status, 1);
+  assert.equal(game.run('item', 'name', 'x', 'Bad').status, 1);
+  assert.equal(game.run('item', 'list', 'extra').status, 1);
+  assert.equal(game.run('item').status, 1);
+});
+
+test('a collapsed hero cannot rest or name an item, but can still list items', () => {
+  const game = readyGame();
+  giveItem(game);
+  setReading(game, 99, 100);
+  for (const args of [['rest'], ['item', 'name', '1', 'Blocked']]) {
+    const result = game.run(...args);
+    assert.equal(result.status, 1, args.join(' '));
+    assert.equal(JSON.parse(result.stderr.trim()).collapsed, true, args.join(' '));
+  }
+  assert.equal(game.run('item', 'list').status, 0);
 });
