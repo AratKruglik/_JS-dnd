@@ -38,7 +38,7 @@ function inFight() {
   createHeroFromChoices(db, saveId, {
     name: 'Bilbo',
     race: 'hobbit',
-    heroClass: 'rogue',
+    heroClass: 'fighter',
     scores: [8, 15, 14, 8, 8, 15],
   });
   setSetting(db, saveId, SETTING);

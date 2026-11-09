@@ -18,8 +18,8 @@ const script = (...pairs) => {
   };
 };
 
-// Hero: halfling, DEX 17 (+3), CON 14 (+2) -> 12 HP, AC 13, attack +5, damage 1d8+3.
-const HERO = { name: 'Bilbo', race: 'hobbit', heroClass: 'rogue', scores: [8, 15, 14, 8, 8, 15] };
+// Hero: halfling fighter (d10), DEX 17 (+3), CON 14 (+2) -> 12 HP, AC 13, attack +5, damage 1d8+3.
+const HERO = { name: 'Bilbo', race: 'hobbit', heroClass: 'fighter', scores: [8, 15, 14, 8, 8, 15] };
 
 function ready({ hero = true, world = true } = {}) {
   const db = freshDb();

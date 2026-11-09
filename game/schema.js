@@ -260,4 +260,25 @@ ALTER TABLE quest_solves ADD COLUMN revoked_at TEXT;
 ALTER TABLE saves ADD COLUMN language TEXT CHECK (language IN ('en', 'uk'));
 `,
   },
+  {
+    // Persistent hero vitals and a small inventory. hp is null until the hero is first hurt, which
+    // means full health. hp_updated_at is the start of the slow regeneration clock. An item row is
+    // revoked, not deleted, when the solve that gave it is revoked.
+    version: 13,
+    sql: `
+ALTER TABLE heroes ADD COLUMN hp INTEGER;
+ALTER TABLE heroes ADD COLUMN gold INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE heroes ADD COLUMN hp_updated_at TEXT;
+CREATE TABLE inventory_items (
+  id INTEGER PRIMARY KEY,
+  save_id INTEGER NOT NULL REFERENCES saves (id),
+  name TEXT,
+  source TEXT NOT NULL CHECK (source IN ('quest', 'fight')),
+  quest_id TEXT,
+  fight_id INTEGER REFERENCES fights (id),
+  created_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+`,
+  },
 ];

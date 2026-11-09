@@ -1,4 +1,5 @@
 import { rollAndLog } from './rolls.js';
+import { hitDie } from './rules.js';
 
 // Pure combat math plus the three roll helpers. Every roll goes through the dice script and
 // is logged, so the AI never invents one. The numbers here are placeholders the owner can tune.
@@ -11,7 +12,7 @@ export function heroStats(hero, modifiers = {}) {
   const dex = abilityMod(total(hero, 'DEX'));
   const best = Math.max(abilityMod(total(hero, 'STR')), dex);
   return {
-    maxHp: 10 + abilityMod(total(hero, 'CON')),
+    maxHp: Math.max(1, hitDie(hero.heroClass) + abilityMod(total(hero, 'CON'))),
     ac: 10 + dex + (modifiers.ac ?? 0),
     attackBonus: best + 2 + (modifiers.attack ?? 0),
     damageMod: best,

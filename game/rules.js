@@ -32,6 +32,25 @@ export const STANDARD_CLASSES = [
   'wizard',
 ];
 
+// The hit die of each standard class (5e). Max HP at level 1 is the die plus the CON modifier.
+// A custom class has no table entry and gets the default die.
+export const HIT_DICE = {
+  barbarian: 12,
+  bard: 8,
+  cleric: 8,
+  druid: 8,
+  fighter: 10,
+  monk: 8,
+  paladin: 10,
+  ranger: 10,
+  rogue: 8,
+  sorcerer: 6,
+  warlock: 8,
+  wizard: 6,
+};
+export const DEFAULT_HIT_DIE = 8;
+export const hitDie = (heroClass) => (Object.hasOwn(HIT_DICE, heroClass) ? HIT_DICE[heroClass] : DEFAULT_HIT_DIE);
+
 // Names players type, in both languages. Matching flattens case, spacing, and apostrophe variants.
 const NAME_TABLES = { en: enNames, uk: ukNames };
 
