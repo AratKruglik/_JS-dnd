@@ -82,3 +82,9 @@ test('the Ukrainian README states the Claude Code version and tells about play.s
   assert.match(uk, /Sonnet/);
   assert.match(uk, /Opus/);
 });
+
+test('the Ukrainian README gives 2.1.271 as the minimum and 2.1.311 as the tested version', () => {
+  const uk = read('README.uk.md');
+  assert.match(uk, /2\.1\.271 або новішої/);
+  assert.match(uk, /перевірено на 2\.1\.311/);
+});

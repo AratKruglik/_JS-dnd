@@ -355,7 +355,7 @@ test('world-smith obeys the language pack, retries at most three times, and repo
 test('onboarding hands the world to world-smith, keeps writing it yourself as the fallback, then checks it', () => {
   const step = onboardingFile.slice(onboardingFile.indexOf('7. World'), onboardingFile.indexOf('8. Open the story'));
   assert.ok(step.includes('subagent_type: "world-smith"'));
-  assert.match(step, /If the call fails/i);
+  assert.match(step, /the call failed/i);
   const delegate = step.indexOf('world-smith');
   const fallback = step.indexOf('node game/cli.js world skeleton');
   assert.ok(delegate >= 0 && fallback > delegate, 'the fallback must come after the delegation');
@@ -377,4 +377,14 @@ test('CLAUDE.md names the skill, both agents, the hook, and how the game command
   for (const word of ['world-smith', 'move-smith', 'game/play-hook.js', '--allowedTools', 'play-hook-tamper']) {
     assert.ok(claudeMd.includes(word), `CLAUDE.md never mentions ${word}`);
   }
+});
+
+test('a world-smith that gives up leaves the Master writing the world itself, never calling it twice', () => {
+  const step = onboardingFile.slice(onboardingFile.indexOf('7. World'), onboardingFile.indexOf('8. Open the story'));
+  assert.match(step, /world status/);
+  assert.match(step, /not complete/i);
+  assert.match(step, /do not call (the )?world-smith again/i);
+  const notComplete = step.search(/not complete/i);
+  const fallback = step.indexOf('node game/cli.js world skeleton');
+  assert.ok(notComplete >= 0 && fallback > notComplete, 'the fallback must follow the not-complete check');
 });

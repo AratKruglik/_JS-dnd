@@ -4,7 +4,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
-# The oldest Claude Code this game was built and tested on. Older ones only get a warning.
+# The oldest Claude Code this game supports: subagents skip CLAUDE.md from this version on. It was built and
+# tested on 2.1.311. Older ones only get a warning.
 MIN_VERSION="2.1.271"
 
 if ! command -v claude >/dev/null 2>&1; then
@@ -27,7 +28,7 @@ older_than() {
 # A version that cannot be read is no reason to warn or to stop.
 VERSION="$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
 if [ -n "$VERSION" ] && older_than "$VERSION" "$MIN_VERSION"; then
-  echo "Claude Code $VERSION is older than $MIN_VERSION, the version this game was built and tested on. It may cost more tokens or miss features. Update Claude Code if anything looks off." >&2
+  echo "Claude Code $VERSION is older than $MIN_VERSION, the oldest version this game supports. It may cost more tokens or miss features. Update Claude Code if anything looks off." >&2
 fi
 
 # The prompt goes first because --allowedTools takes a list and would swallow a prompt placed after it.

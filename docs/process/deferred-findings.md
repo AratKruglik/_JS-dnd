@@ -153,3 +153,13 @@ Legend for status: **open** means still true in the code, **fixed** means a late
   - `RESUMING` is checked in both `game/cli.js` and `game/cli-main.js`. Two copies of the same rule.
   - A hook failure still shows Claude Code's own non-blocking hook error if Node itself cannot start. Nothing in the repo can change that.
   - `omitClaudeMd` is ignored by Claude Code older than 2.1.271, so `move-smith` and `world-smith` then load CLAUDE.md and cost more. The game still works.
+
+### Found by the final review of the play harness follow-up, 2026-11-09
+
+- Fixed: a `world-smith` that gave up after three rejected tries came back as a normal result, so the Master had no instruction to write the world itself. Onboarding now checks `world status` and falls back when the world is not complete, and never calls world-smith twice.
+- Fixed: the README, `README.uk.md`, and `play.sh` called 2.1.271 "the version this was built and tested on". It is the oldest supported version (where `omitClaudeMd` starts working), and the game was tested on 2.1.311.
+- Deferred minors:
+  - `SKILL.md` still describes the `[game]` line without HP and gold, so the Master may spend a `hero show` call it does not need.
+  - `world-smith.md` says "use only what they return" while the Master may pass the player's tone or place wishes in its brief. A literal reading ignores them.
+  - Test gaps: `resume` for a save with the setting saved but no world filled is correct (checked by hand) but not pinned, and the `play.sh` stub never makes `claude --version` exit non-zero.
+- Not judged: whether `/play` as the first CLI argument fires the prompt hook, whether subagents inherit `--allowedTools`, and that a plain `/play` launch (without `play.sh`) now asks for approval on every game command, `world-smith`'s included. That last one follows the decision to keep the allow rule out of the committed settings.

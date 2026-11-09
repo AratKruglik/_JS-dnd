@@ -8,7 +8,7 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 
 ## How to play
 
-**You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) 2.1.271 or later (the version this was built and tested on) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
+**You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) 2.1.271 or later (the oldest version that works as designed; it was tested on 2.1.311) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
 
 1. Clone the repo and run `bash setup.sh` once. It checks Node, installs the code style tools with npm, asks once whether you want to play in English or Ukrainian, and creates your local save.
 2. Open the folder in Claude Code and type `/play`, or run `bash play.sh`, which starts Claude Code on Sonnet (cheaper per turn), approves the game commands for this launch only, and runs `/play` for you. The world itself is written once, at the start, by a stronger model (Opus).

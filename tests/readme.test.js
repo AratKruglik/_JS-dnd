@@ -90,3 +90,10 @@ test('How to play states the Claude Code version, play.sh, and which model does 
   assert.match(play, /Opus/);
   assert.match(play, /this launch only/i);
 });
+
+test('the README says 2.1.271 is the minimum and 2.1.311 is what it was tested on, not the other way round', () => {
+  const play = readme.slice(at('\n## How to play'), at('\n## Tech stack'));
+  assert.match(play, /2\.1\.271 or later/);
+  assert.match(play, /tested on 2\.1\.311/);
+  assert.doesNotMatch(play, /built and tested/i);
+});

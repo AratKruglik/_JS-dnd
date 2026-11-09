@@ -103,3 +103,12 @@ test('the skill still grants the game commands for its own turn only', () => {
   assert.match(skill, /^allowed-tools: Bash\(node game\/cli\.js \*\)$/m);
   assert.match(skill, /^disable-model-invocation: true$/m);
 });
+
+test('play.sh calls 2.1.271 the oldest supported version, never the tested one', () => {
+  const script = readFileSync(join(root, 'play.sh'), 'utf8');
+  assert.match(script, /oldest/i);
+  assert.doesNotMatch(script, /built and tested/i);
+  const warning = play(stubClaude('2.1.200 (Claude Code)').bin).stderr;
+  assert.match(warning, /oldest/i);
+  assert.doesNotMatch(warning, /tested/i);
+});
