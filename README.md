@@ -17,10 +17,12 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 5. The Master builds your world. Everyone gets the same number of places, people, and quests. The setting and the story are yours alone.
 6. Walk between places, talk to people, and take quests. Each quest names a file in the `player/` folder. You write your solution in it, in your own editor.
 7. Tell the Master when it is ready. The game runs your code first. If it passes, the Master reads it. Cheat and your honor drops. Be a jerk and people avoid you and roast you. Fix or keep the style problems the game points out.
-8. Your hero's stamina is your real 5 hour AI usage window, shown in the bar at the bottom. Past 60 percent your hero tires, and near the end they collapse until the window resets.
+8. The bar at the bottom shows your hero (name, level, health, gold, items, and place) above their stamina. Stamina is your real 5 hour AI usage window. Past 60 percent your hero tires, and near the end they collapse until the window resets.
 9. Beat every quest, then the final boss, and a page of your whole journey is built for you.
 
 The Master speaks the language you picked. To switch later, tell the Master in `/play`.
+
+Health carries between fights and comes back slowly over real time, fully when you wake after a lost fight, partly with every clean solve, and fully with a rest at the start for a little gold. Clean solves pay gold, and every clean solve and won fight gives your hero an item the Master names. Items are keepsakes for now, with no effects.
 
 Honor is your reputation. Kind words, honest solves, and helping people raise it. Cheating, swearing, and picking fights lower it, and low honor gets you roasted instead of reviewed gently.
 
@@ -86,6 +88,7 @@ Legend: **Done** is built and tested. **In progress** is partly built. **Planned
 | Code style check on quest files | 3 | Done | Prettier and ESLint run on a passing quest file. Problems are shown with their lines, the player may fix them or keep the file and lose a little honor. Needs `npm install`, which `setup.sh` runs, and is skipped when the tools are missing. |
 | Dice tamper detection                         | 2     | Done    | A stored fingerprint of the dice and rolls files is checked before every command. A change, a deletion, or a broken file resets you to level 1 in the same world, keeps your race bonuses, and keeps your history. |
 | Stamina bar from the real 5hr limit           | 6     | In progress | A project status line reads the real usage and stores it in the DB, with a game-time estimate as fallback. Built and tested, still needs one live check in a fresh Claude Code session. |
+| Hero line and vitals                          | none  | Done | Persistent health (class hit die plus CON), slow regeneration, gold from clean solves, unnamed items the Master names, and a rest. The bottom bar shows the hero line above the stamina bar. Gold has no use but rest, and items have no effects yet. |
 | Tiredness penalties                           | 6     | Done | None before 60% used, then attack and AC drop in steps. Near the end of the window the hero collapses and play stops until it resets. |
 | Hidden ending stats page                      | 7     | Done | A final boss guards it. After every quest and the boss, a script builds one self-contained page with time played (estimated), enemies defeated, tasks solved, and honor and complexity charts. Subjects learned is not built, and nobody has played from a fresh hero to the ending yet. |
 | Gemini, Grok, local model support             | later | Planned | After Claude works                                                                                                                              |
@@ -123,6 +126,9 @@ node game/cli.js quest start dice-roll      # writes dice-roll.js into the playe
 node game/cli.js quest check dice-roll      # step 1: runs your file against the fixed check
 node game/cli.js quest judge dice-roll clean "no cheating spotted"   # step 2: the Master's verdict
 node game/cli.js link check https://developer.mozilla.org/en-US/docs/Web/JavaScript
+node game/cli.js rest                       # a full heal for 5 gold, at the start, when hurt
+node game/cli.js item list                  # items the hero carries
+node game/cli.js item name 1 "Rusty Lucky Die"   # the Master names an item, once
 node game/cli.js honor event swearing "cursed at the baker"
 ```
 

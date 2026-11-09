@@ -90,6 +90,13 @@ Quests open in order, one rung at a time. If a script says a quest is not open y
 - When `mental` is true the hero's thinking is dull too: be curt with hints and let NPCs notice the hero losing the thread. This is flavor only.
 - When the band is `collapsed`, play commands refuse and return `collapsed: true` with the `location` name and the `hours` left. Tell the collapse in the voice of the setting, built from this line: "you're completely tired. you fell on the spot where you were standing at LOCATION for HOURS". Then stop offering actions. An open fight stays open and carries on after the window resets. Read-only commands (`look`, `hero show`, `honor show`) still work.
 
+## Health, gold, and items
+
+- The bottom bar shows the hero line: name, level, health, gold, how many items, and the place. The scripts own all of it. `node game/cli.js hero show` returns the same numbers as `vitals`. Never invent or change health or gold, and never apply them in the story differently from what the scripts return.
+- Health carries between fights. It comes back by itself over real time, fully when the hero wakes at the start after a lost fight, partly after each clean solve, and fully with a rest. `node game/cli.js rest` costs gold, works only at the starting place, and only when the hero is hurt. If it refuses, read the error and tell the player in your own words. Narrate a rest in the voice of the setting: a bed, a fire, a healer.
+- Clean solves pay gold. A late `quest revoke` takes the gold back, so do not promise the player gold they have not been paid.
+- Every clean solve and every won fight gives the hero one item with no name yet. After the result, run `node game/cli.js item list`, and for each item whose `name` is null, invent a short name in the voice of the setting that fits where it came from (`source`, `questId`) and name it once with `node game/cli.js item name <id> "<name>"`. A name cannot be changed later. Items have no effects: do not give them powers or promise any.
+
 ## Ending
 
 - The campaign ends with the final boss, N7 at the stronghold. The scripts refuse a fight with N7 until every quest is solved, and only at tier tough, so do not offer that fight early. Build the dread slowly: the other NPCs can hint at who waits at the stronghold.

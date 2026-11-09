@@ -68,3 +68,9 @@ test('CLAUDE.md names the language commands, the catalogs, and the review gate',
   assert.match(claude, /quests\/text/);
   assert.match(claude, /uk-review-checklist/);
 });
+
+test('the Ukrainian README tells about the hero line, health, gold, and items', () => {
+  const uk = read('README.uk.md');
+  assert.match(uk, /Смуга внизу показує/);
+  for (const word of ['здоровʼя', 'золото', 'предмет']) assert.ok(uk.includes(word), word);
+});

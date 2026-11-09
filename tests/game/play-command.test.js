@@ -271,3 +271,26 @@ test('play.md tells the Master to show races and classes by display name and pas
   assert.match(onboarding, /both languages/i);
   assert.match(onboarding, /raceDisplay/);
 });
+
+test('play.md tells the Master how health, gold, rest, and items work, with real commands', () => {
+  const start = play.indexOf('## Health, gold, and items');
+  const end = play.indexOf('## Ending');
+  assert.ok(start >= 0 && end > start, 'the Health, gold, and items section is missing or misplaced');
+  const section = play.slice(start, end);
+  for (const command of [
+    'node game/cli.js rest',
+    'node game/cli.js item list',
+    'node game/cli.js item name',
+    'node game/cli.js hero show',
+  ]) {
+    assert.ok(section.includes(command), `${command} is not explained`);
+  }
+  assert.match(section, /never (invent|change)/i);
+  assert.match(section, /name it once/i);
+  assert.match(section, /voice of the setting/);
+});
+
+test('every game command named in play.md exists in the CLI usage text', () => {
+  const usage = readFileSync(join(root, 'game', 'cli-main.js'), 'utf8');
+  for (const command of ['rest', 'item list', 'item name']) assert.ok(usage.includes(command), command);
+});

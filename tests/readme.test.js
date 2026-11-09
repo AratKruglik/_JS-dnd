@@ -69,3 +69,15 @@ test('the feature list says the fingerprint covers both the dice and rolls files
   const row = readme.split('\n').find((l) => l.includes('Dice tamper detection'));
   assert.match(row, /dice and rolls/i);
 });
+
+test('the README tells players about the hero line, health, gold, and items, and developers about the commands', () => {
+  const play = readme.slice(at('\n## How to play'), at('\n## Tech stack'));
+  assert.match(play, /bar at the bottom/i);
+  assert.match(play, /health/i);
+  assert.match(play, /gold/i);
+  assert.match(play, /items?/i);
+  const scripts = readme.slice(at('\n## Try the scripts'), at('\n## Languages'));
+  assert.match(scripts, /node game\/cli\.js rest/);
+  assert.match(scripts, /node game\/cli\.js item list/);
+  assert.ok(readme.includes('Hero line and vitals'), 'the feature table has no row for the hero line');
+});

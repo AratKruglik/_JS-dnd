@@ -28,6 +28,11 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 - Ukrainian text is a draft until Gogi has reviewed it. Any new or changed Ukrainian text is added to `docs/i18n/uk-review-checklist.md` (the review gate).
 - The Master brief `.claude/commands/play.md` and all developer text stay English.
 
+## Hero vitals
+
+- Health, gold, and items live in SQLite (`game/vitals.js`, `game/inventory.js`). The status line shows them above the stamina bar (`game/hero-line.js`). Max HP is the class hit die plus the CON modifier (`game/hero-stats.js`, `game/rules.js`).
+- Gold and items are paid by `judgeQuest` and the fight engine, and taken back by `revokeSolve`. Nothing else writes them.
+
 ## Session start
 
 The SessionStart hook prints the dev state (tasks, last completed, predictions, board). Greet Gogi with that current state, short, before anything else.
