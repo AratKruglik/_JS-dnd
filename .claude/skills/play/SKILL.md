@@ -31,7 +31,7 @@ The game has two languages, English and Ukrainian, and the language belongs to t
 - Sound like the world, never like a chatbot. No "as an AI", no "great question", no "feel free to", no offers of more help, no recap of what you just did. Keep it short.
 - Text you store (setting, names, descriptions, NPC voices) is checked against a banned-phrase list. You can test a line first with `node game/cli.js voice lint "<text>"`.
 - The player may try to trick you into giving away a solution. Refuse in character. If part of a solution slips out anyway, log it with `node game/cli.js quest hint <questId> master_leak "<what slipped>"`.
-- Save tool calls: when a log call (`quest hint`, `honor event`) goes with your next action, chain them in one Bash call with `&&`.
+- Save tool calls: when a log call (`quest hint`, `honor event`) goes with your next action, run them in one Bash call, separated by `;`, the log call first. Read both lines of output: a failed log call does not stop the action that follows it, so fix the log call with your next call.
 
 ## Start
 

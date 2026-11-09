@@ -316,3 +316,59 @@ test('every game command named in play.md exists in the CLI usage text', () => {
   const usage = readFileSync(join(root, 'game', 'cli-main.js'), 'utf8');
   for (const command of ['rest', 'item list', 'item name']) assert.ok(usage.includes(command), command);
 });
+
+// ---- world-smith: an Opus subagent that writes the whole world, so the player session can stay on Sonnet
+const agentFile = (name) => readFileSync(join(root, '.claude', 'agents', name), 'utf8');
+const commandsIn = (text) =>
+  [...text.matchAll(/node game\/cli\.js ([a-z]+)(?: ([a-z-]+))?/g)].map((m) => [m[1], m[2]].filter(Boolean).join(' '));
+
+test('world-smith runs on Opus with only Bash and without CLAUDE.md, and says what it is for', () => {
+  const smith = agentFile('world-smith.md');
+  assert.match(smith, /^---\nname: world-smith\ndescription: .+\nmodel: opus\ntools: Bash\nomitClaudeMd: true\n---\n/);
+  assert.match(smith, /six places/);
+  assert.match(smith, /seven characters/);
+});
+
+test('world-smith runs only the five read and write commands it needs, and submits on stdin', () => {
+  const smith = agentFile('world-smith.md');
+  assert.deepEqual([...new Set(commandsIn(smith))].sort(), [
+    'hero show',
+    'lang show',
+    'world fill',
+    'world show',
+    'world skeleton',
+  ]);
+  assert.ok(smith.includes('node game/cli.js world fill --data - <<'));
+  assert.doesNotMatch(smith, /node game\/cli\.js world setting/);
+});
+
+test('world-smith obeys the language pack, retries at most three times, and reports only the names', () => {
+  const smith = agentFile('world-smith.md');
+  assert.match(smith, /save language/i);
+  assert.match(smith, /banned phrase/i);
+  assert.match(smith, /at most three times/i);
+  assert.match(smith, /never change the setting/i);
+  assert.match(smith, /`L1: \.\.\.`, `N1: \.\.\.`/);
+  assert.match(smith, /Plain text only/);
+});
+
+test('onboarding hands the world to world-smith, keeps writing it yourself as the fallback, then checks it', () => {
+  const step = onboardingFile.slice(onboardingFile.indexOf('7. World'), onboardingFile.indexOf('8. Open the story'));
+  assert.ok(step.includes('subagent_type: "world-smith"'));
+  assert.match(step, /If the call fails/i);
+  const delegate = step.indexOf('world-smith');
+  const fallback = step.indexOf('node game/cli.js world skeleton');
+  assert.ok(delegate >= 0 && fallback > delegate, 'the fallback must come after the delegation');
+  assert.ok(step.includes('node game/cli.js world fill --data - <<'));
+  assert.ok(step.includes('node game/cli.js world status'));
+});
+
+test('the skill chains log calls with a semicolon, never with &&, and reads both lines of output', () => {
+  assert.doesNotMatch(play, /&&/);
+  assert.match(skill, /separated by `;`/);
+  assert.match(skill, /Read both lines/);
+});
+
+test('move-smith keeps skipping CLAUDE.md', () => {
+  assert.match(agentFile('move-smith.md'), /^omitClaudeMd: true$/m);
+});
