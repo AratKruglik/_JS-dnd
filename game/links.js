@@ -7,6 +7,7 @@ export const LEGAL_SOURCES = [
   { host: 'nodejs.org', pathPrefixes: ['/docs', '/api'] },
   { host: 'fetch.spec.whatwg.org' },
   { host: 'javascript.info' },
+  { host: 'uk.javascript.info' },
   { host: 'eloquentjavascript.net' },
 ];
 

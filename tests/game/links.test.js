@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyLink, LEGAL_SOURCES } from '../../game/links.js';
 
-test('each of the seven legal sources is legal', () => {
+test('each of the eight legal sources is legal', () => {
   const urls = [
     'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
     'https://www.w3schools.com/js/',
@@ -10,9 +10,10 @@ test('each of the seven legal sources is legal', () => {
     'https://nodejs.org/docs/latest/api/',
     'https://fetch.spec.whatwg.org/',
     'https://javascript.info/promise-basics',
+    'https://uk.javascript.info/promise-basics',
     'https://eloquentjavascript.net/11_async.html',
   ];
-  assert.equal(LEGAL_SOURCES.length, 7);
+  assert.equal(LEGAL_SOURCES.length, 8);
   for (const url of urls) assert.equal(classifyLink(url).legal, true, `${url} should be legal`);
 });
 
@@ -68,6 +69,28 @@ test('only the exact host counts: no subdomain, no suffix, no prefix of a legal 
     'https://javascript.info.evil.test/',
     'https://x.mozilla.org.evil.test/',
     'https://mozilla.org/',
+  ]) {
+    assert.equal(classifyLink(url).legal, false, url);
+  }
+});
+
+test('the Ukrainian javascript.info mirror is legal, with or without a scheme or www', () => {
+  assert.deepEqual(classifyLink('https://uk.javascript.info/'), { legal: true, host: 'uk.javascript.info' });
+  assert.deepEqual(classifyLink('uk.javascript.info/promise-basics'), { legal: true, host: 'uk.javascript.info' });
+  assert.equal(classifyLink('HTTPS://WWW.UK.JAVASCRIPT.INFO/async').legal, true);
+});
+
+test('lookalikes of the Ukrainian mirror are illegal', () => {
+  for (const url of [
+    'https://uk.javascript.info.evil.test/',
+    'https://uk.javascript.info@evil.test/',
+    'https://evil.test/uk.javascript.info',
+    'https://notuk.javascript.info/',
+    'https://xuk.javascript.info/',
+    'https://de.javascript.info/',
+    'https://sub.uk.javascript.info/',
+    'uk.javascript.info.evil.test/path',
+    'uk.javascript.info@evil.test/path',
   ]) {
     assert.equal(classifyLink(url).legal, false, url);
   }

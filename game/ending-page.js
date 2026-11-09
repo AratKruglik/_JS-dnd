@@ -15,7 +15,7 @@ const fmt = (n) => (Math.round(n * 10) / 10).toString();
 // make the chart emptier, never broken.
 export function lineChart(
   points,
-  { width = 640, height = 220, yMin, yMax, label = '', marks = [], step = true, empty = 'No data yet' } = {},
+  { width = 640, height = 220, yMin, yMax, label = '', marks = [], step = true, empty = '' } = {},
 ) {
   const pts = points.filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y));
   const open = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title>`;

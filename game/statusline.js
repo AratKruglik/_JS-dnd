@@ -46,6 +46,8 @@ let text;
 try {
   text = line();
 } catch {
+  // The last resort, for when even the language lookup failed, so it cannot come from the catalog.
+  // eslint-disable-next-line no-restricted-syntax
   text = 'STAMINA unknown';
 }
 process.stdout.write(`${text}\n`);

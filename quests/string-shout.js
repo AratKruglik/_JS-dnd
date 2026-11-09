@@ -2,6 +2,8 @@ import { missingExport, wrongResult, passed } from './messages.js';
 
 const FIXED = [
   ['hello', 'HELLO!'],
+  // Test input for the player's function, not text the player reads.
+  // eslint-disable-next-line no-restricted-syntax
   ['  hi there ', 'HI THERE!'],
   ['', '!'],
 ];

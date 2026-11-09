@@ -17,7 +17,7 @@ test('the README opens with what the game is, then how to play, then the tech st
   const play = at('\n## How to play');
   const stack = at('\n## Tech stack');
   assert.ok(description < play && play < stack, 'order is description, How to play, Tech stack');
-  assert.match(readme.split('\n')[0], /^# JS D&D$/);
+  assert.match(readme.split('\n')[2], /^# JS D&D$/);
 });
 
 test('everything developer related comes after the tech stack', () => {

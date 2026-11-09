@@ -21,6 +21,13 @@ A D&D-style adventure played in the terminal where every quest is a JS task. Pub
 - Game state lives in SQLite reached through scripts. Never JSON or markdown files as game state.
 - The dev notes DB (`.dev/dev.db`) is gitignored and separate from the game DB.
 
+## Languages
+
+- Game text is English and Ukrainian. `node game/cli.js lang show` and `lang set <en|uk>` read and change the save language.
+- Every player-facing string lives in `game/locales/{en,uk}.js` or `quests/text/{en,uk}.js`, never inline in a module. A lint rule enforces it for the player-facing modules.
+- Ukrainian text is a draft until Gogi has reviewed it. Any new or changed Ukrainian text is added to `docs/i18n/uk-review-checklist.md` (the review gate).
+- The Master brief `.claude/commands/play.md` and all developer text stay English.
+
 ## Session start
 
 The SessionStart hook prints the dev state (tasks, last completed, predictions, board). Greet Gogi with that current state, short, before anything else.

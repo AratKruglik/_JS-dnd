@@ -1,3 +1,5 @@
+**English** | [Українська](README.uk.md)
+
 # JS D&D
 
 A D&D-style adventure you play in your terminal, with your own AI model as the Dungeon Master. Every quest is a real JavaScript task: you write code in a file, and that code has to behave a certain way for the story to move on.
@@ -8,7 +10,7 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 
 **You need:** Node.js with `node:sqlite` support (Node 25.8.1 is what this was built on), and [Claude Code](https://claude.com/claude-code) with a Claude plan. The game is played inside Claude Code, which becomes your Dungeon Master.
 
-1. Clone the repo and run `bash setup.sh` once. It checks Node, installs the code style tools with npm, and creates your local save.
+1. Clone the repo and run `bash setup.sh` once. It checks Node, installs the code style tools with npm, asks once whether you want to play in English or Ukrainian, and creates your local save.
 2. Open the folder in Claude Code and type `/play`.
 3. Build your hero: pick a race and a class (custom ones allowed), name them, and spend your points on abilities.
 4. The Master offers a few settings, from medieval to cyberpunk to Mad Max to a book or film world. Pick one, customize it, or write your own.
@@ -17,6 +19,8 @@ Built for JS beginners who want to learn programming but are tired of gamified q
 7. Tell the Master when it is ready. The game runs your code first. If it passes, the Master reads it. Cheat and your honor drops. Be a jerk and people avoid you and roast you. Fix or keep the style problems the game points out.
 8. Your hero's stamina is your real 5 hour AI usage window, shown in the bar at the bottom. Past 60 percent your hero tires, and near the end they collapse until the window resets.
 9. Beat every quest, then the final boss, and a page of your whole journey is built for you.
+
+The Master speaks the language you picked. To switch later, tell the Master in `/play`.
 
 Honor is your reputation. Kind words, honest solves, and helping people raise it. Cheating, swearing, and picking fights lower it, and low honor gets you roasted instead of reviewed gently.
 
@@ -136,6 +140,22 @@ For spectacular moves it also uses `move propose` and `move check`.
 Developers who change a sealed file on purpose (`game/dice.js` or `game/rolls.js`) re-seal it with `node game/seal.js`.
 
 `node dev/cli.js board-config yamnyk 3` points the dev tooling at the GitHub board. The dev notes DB lives in `.dev/` and is not committed.
+
+## Languages
+
+The game is played in English or Ukrainian. The language belongs to the save: `setup.sh` asks once, the Master asks if it is still empty, and it can be switched at any time. Scripts return quest text and check messages already in the save language.
+
+```bash
+node game/cli.js lang show        # the language and its pack (glossary, roast rules, banned phrases, voice tips)
+node game/cli.js lang set uk      # or en
+```
+
+- `game/locales/en.js` and `game/locales/uk.js` hold every UI string (flat dotted keys, `{placeholders}`, plural entries), the language pack, and the race and class names.
+- `quests/text/en.js` and `quests/text/uk.js` hold the quest briefs, starter files, and style directions. A quest file itself carries only its id, rung, complexity, and check.
+- The Master's brief `.claude/commands/play.md` stays English and tells it to follow the pack.
+- Code, file names, and commands stay English in every language. Developer text stays English.
+- The Ukrainian text is a draft until a native speaker has reviewed it. `docs/i18n/uk-review-checklist.md` lists every file and key to read. New or changed Ukrainian text goes through the same gate.
+- An ESLint rule (`no-restricted-syntax`, listed modules in `eslint.config.js`) rejects multiword English prose in the player-facing modules, so new words go into the catalogs.
 
 ## Repo layout
 

@@ -261,3 +261,8 @@ test('an empty Ukrainian chart says so in Ukrainian, and hostile text is still e
 test('English stays what it was: the default language gives the same page as asking for en', () => {
   assert.equal(renderPage(stats()), renderPage(stats(), 'en'));
 });
+
+test('an empty chart never falls back to English words of its own', () => {
+  assert.ok(!lineChart([]).includes('No data'));
+  assert.ok(!/[A-Za-z]{3,} [A-Za-z]{3,}/.test(lineChart([]).replace(/<[^>]*>/g, ' ')));
+});
