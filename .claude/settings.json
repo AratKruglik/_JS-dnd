@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "allow": ["Bash(node game/cli.js *)"]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +10,25 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/dev/session-start.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/game/play-hook.js\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/game/play-hook.js\""
           }
         ]
       }
