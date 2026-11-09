@@ -129,3 +129,13 @@ Legend for status: **open** means still true in the code, **fixed** means a late
   - `setup.sh`: re-running setup and pressing Enter saves English over an existing Ukrainian save, and `ua` is read as English.
   - `README.md` repo layout row for `quests/` still says briefs and stubs, which moved to `quests/text/`. `CLAUDE.md` says no player-facing string is inline, which `game/cli-main.js` error text still breaks by decision.
   - Not judged: a Node build without Ukrainian ICU after `uk` is chosen in `/play`, and whether the banned phrase `як ші` causes false positives.
+
+## Found by the final review of the hero status bar, 2026-11-09
+
+- Fixed: a clean solve judged during an open fight healed the hero but not the fight row, so the next hit or a flee wrote the old health back. `healHero` now writes through to the open fight.
+- Deferred minors:
+  - A revoke takes back `complexity * 5` gold even for a solve made before migration 13, which never paid gold. Only saves that existed before the upgrade are affected.
+  - The hero name and place name go into the status line raw. A name with a newline or an escape code breaks the bar, because `createHeroFromChoices` only trims and the world text check has no control character rule like `nameItem` has.
+  - Test gaps: "revoking a solve that gave no item" actually solves through `judgeQuest`, and the tamper reset with `fullHeal` is not run end to end under a missing dice file (checked by hand, works).
+- Gogi's call: gold and items survive a tamper reset, so re-solving in the new epoch pays again.
+- Not judged: an unparseable `hp_updated_at` makes `syncHp` throw (hand-edited DB only), up to 29 leftover regeneration minutes are lost per fight by design, `hero show` reads the hero and vitals in separate statements.

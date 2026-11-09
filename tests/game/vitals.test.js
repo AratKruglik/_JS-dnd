@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSave, createHeroFromChoices } from '../../game/hero.js';
 import { setSetting, fillWorld, go } from '../../game/world.js';
-import { beginFight, heroAttack, fleeFight } from '../../game/combat-engine.js';
+import { beginFight, heroAttack, fleeFight, getFightState } from '../../game/combat-engine.js';
 import { applyTamperReset } from '../../game/reset.js';
 import { checkQuest, judgeQuest } from '../../game/quests.js';
 import { REGEN_MS, REST_COST, readVitals, syncHp, healHero, restHero, addGold } from '../../game/vitals.js';
@@ -180,4 +180,26 @@ test('a cheated verdict heals nothing', () => {
   checkQuest(db, saveId, 'dice-roll', { playerDir, timeoutMs: 15000 });
   judgeQuest(db, saveId, 'dice-roll', 'cheated', 'hardcoded', { playerDir });
   assert.equal(readVitals(db, saveId).hp, 6);
+});
+
+test('a heal during an open fight reaches the fight too, so the next hit and a flee keep it', () => {
+  const { db, saveId } = ready();
+  hurt(db, saveId);
+  assert.equal(getFightState(db, saveId).hero.hp, 6);
+  assert.equal(healHero(db, saveId, 3).hp, 9);
+  assert.equal(getFightState(db, saveId).hero.hp, 9);
+  fleeFight(db, saveId);
+  assert.equal(readVitals(db, saveId).hp, 9);
+});
+
+test('a clean solve judged in the middle of a fight keeps its heal after the flee', () => {
+  const { db, saveId } = ready();
+  hurt(db, saveId);
+  const playerDir = mkdtempSync(join(tmpdir(), 'jsdnd-vitals-'));
+  copyFileSync(join(solutions, 'dice-roll.reference.js'), join(playerDir, 'dice-roll.js'));
+  checkQuest(db, saveId, 'dice-roll', { playerDir, timeoutMs: 15000 });
+  judgeQuest(db, saveId, 'dice-roll', 'clean', null, { playerDir });
+  assert.equal(getFightState(db, saveId).hero.hp, 9);
+  fleeFight(db, saveId);
+  assert.equal(readVitals(db, saveId).hp, 9);
 });

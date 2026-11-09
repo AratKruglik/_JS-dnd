@@ -75,6 +75,11 @@ export function healHero(db, saveId, amount, nowMs = Date.now()) {
     const { hp, maxHp } = syncHp(db, saveId, nowMs);
     const healed = Math.min(maxHp, hp + amount);
     setHp(db, saveId, healed, nowMs);
+    // A heal in the middle of a fight must reach the fight too, or the next hit would write the old health back.
+    db.prepare('UPDATE fights SET hero_hp = ? WHERE save_id = ? AND ended_at IS NULL AND enemy_hp IS NOT NULL').run(
+      healed,
+      saveId,
+    );
     return { hp: healed, maxHp };
   });
 }
