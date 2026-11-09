@@ -39,6 +39,8 @@ function ready() {
   const atStronghold = () => db.prepare("UPDATE heroes SET location_slot = 'L6' WHERE save_id = ?").run(saveId);
   // The hero always goes first and the boss always misses, so the fight is a plain grind.
   const winBoss = () => {
+    // The win must land strictly after the latest solve, and timestamps are millisecond ISO strings.
+    pause(2);
     atStronghold();
     beginFight(db, saveId, { npcSlot: 'N7', tier: 'tough', aggressor: 'hero', rng: LOW });
     let state;
