@@ -137,21 +137,32 @@ test('play.md teaches warnings, tiers, the fight loop, and advanced moves', () =
     'node game/cli.js fight attack',
     'node game/cli.js fight flee',
     'node game/cli.js fight state',
-    "node game/cli.js move propose --data - <<'EOF'",
     'node game/cli.js move check',
   ]) {
     assert.ok(play.includes(command), `play.md never mentions "${command}"`);
   }
   assert.match(play, /weak\|normal\|tough/);
-  assert.match(play, /3 to 12 tests/);
-  assert.match(play, /never the tests/i);
   assert.doesNotMatch(play, /not built yet/i);
 });
 
 test('play.md has a subagent write the move problem so the tests and answer stay off the Master screen', () => {
   const combat = combatFile;
-  assert.match(combat, /subagent/i);
+  assert.match(combat, /subagent_type: "move-smith"/);
   assert.match(combat, /never (write|send|show|type)[^.]*(tests|reference)/i);
+});
+
+test('move-smith runs on sonnet with only Bash, writes a valid problem, and never reports the answer', () => {
+  const smith = readFileSync(join(root, '.claude', 'agents', 'move-smith.md'), 'utf8');
+  assert.match(smith, /^---\nname: move-smith\ndescription: .+\n/);
+  assert.match(smith, /\nmodel: sonnet\n/);
+  assert.match(smith, /\ntools: Bash\n/);
+  assert.match(smith, /\nomitClaudeMd: true\n/);
+  assert.ok(smith.includes("node game/cli.js move propose --data - <<'EOF'"));
+  assert.match(smith, /3 to 12/);
+  assert.match(smith, /difficulty/);
+  assert.match(smith, /export function solve/);
+  assert.match(smith, /never the tests/i);
+  assert.equal(smith.includes(String.fromCharCode(0x2014)) || smith.includes(String.fromCharCode(0x2013)), false);
 });
 
 test('play.md makes the Master judge a passed move file and log cheating', () => {
