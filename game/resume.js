@@ -2,7 +2,7 @@ import { getHero } from './hero.js';
 import { getHonor } from './honor.js';
 import { worldStatus, getSetting, look } from './world.js';
 import { getProgress } from './quests.js';
-import { getFightState } from './combat-engine.js';
+import { getFightState } from './fight-state.js';
 import { currentStamina } from './stamina.js';
 
 // Everything the Master needs to pick a game back up, in one read. It never writes.

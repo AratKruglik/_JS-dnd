@@ -1,7 +1,8 @@
 import { inTransaction } from './db.js';
 import { getHero } from './hero.js';
 import { worldStatus } from './world-status.js';
-import { startFight, logFightStep, endFight, getFightLog } from './fights.js';
+import { startFight, logFightStep, endFight } from './fights.js';
+import { openFight, stateOf, getFightState } from './fight-state.js';
 import { applyHonorRule } from './honor-rules.js';
 import { abilityMod, heroStats, ENEMY_TIERS, attackRoll, damageRoll, initiativeRoll } from './combat.js';
 import { getQuest } from '../quests/index.js';
@@ -11,6 +12,9 @@ import { getProgress } from './quests.js';
 import { BOSS_SLOT, endingStatus } from './ending.js';
 import { syncHp, setHp, fullHeal } from './vitals.js';
 import { grantItem } from './inventory.js';
+
+// Re-exported so the fight engine stays the one place callers import fights from.
+export { openFight, getFightState };
 
 const WARNINGS_BEFORE_FIGHT = 2;
 const now = () => new Date().toISOString();
@@ -29,31 +33,6 @@ export function warnNpc(db, saveId, npcSlot, reason = null) {
     const { count } = db.prepare('SELECT count FROM npc_warnings WHERE save_id = ? AND npc_slot = ?').get(saveId, slot);
     return { warnings: count, mayFight: count > WARNINGS_BEFORE_FIGHT };
   });
-}
-
-export const openFight = (db, saveId) =>
-  db
-    .prepare(
-      'SELECT * FROM fights WHERE save_id = ? AND ended_at IS NULL AND enemy_hp IS NOT NULL ORDER BY id DESC LIMIT 1',
-    )
-    .get(saveId);
-
-function stateOf(db, fightId, extras = {}) {
-  const f = db.prepare('SELECT * FROM fights WHERE id = ?').get(fightId);
-  return {
-    fightId,
-    round: f.round,
-    hero: { hp: f.hero_hp, hpMax: f.hero_hp_max },
-    enemy: { name: f.enemy_name, tier: f.enemy_tier, hp: f.enemy_hp, hpMax: f.enemy_hp_max, ac: f.enemy_ac },
-    status: f.outcome ?? 'open',
-    log: getFightLog(db, fightId).slice(-6),
-    ...extras,
-  };
-}
-
-export function getFightState(db, saveId) {
-  const f = openFight(db, saveId);
-  return f ? stateOf(db, f.id) : null;
 }
 
 // Only the enemy's answer to the hero's turn. Returns true when the hero is knocked out.
