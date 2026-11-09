@@ -90,7 +90,18 @@ function stubInstall() {
   const dir = mkdtempSync(join(tmpdir(), 'jsdnd-npm-'));
   mkdirSync(join(dir, 'game'));
   copyFileSync(join(root, 'setup.sh'), join(dir, 'setup.sh'));
-  writeFileSync(join(dir, 'game', 'cli.js'), "console.log('{}');\n");
+  // The stub game logs every command it is given, so a test can see what setup asked of it.
+  writeFileSync(
+    join(dir, 'game', 'cli.js'),
+    [
+      "import { appendFileSync } from 'node:fs';",
+      "import { dirname, join } from 'node:path';",
+      "import { fileURLToPath } from 'node:url';",
+      "appendFileSync(join(dirname(fileURLToPath(import.meta.url)), 'calls.log'), process.argv.slice(2).join(' ') + '\\n');",
+      "console.log('{}');",
+      '',
+    ].join('\n'),
+  );
   return dir;
 }
 const runIn = (dir, env) => spawnSync('/bin/bash', [join(dir, 'setup.sh')], { cwd: dir, env, encoding: 'utf8' });
@@ -142,4 +153,144 @@ test('no npm at all only warns, and setup still completes', () => {
 test('setup.sh names both sealed files when it tells a player what to restore', () => {
   const script = readFileSync(join(root, 'setup.sh'), 'utf8');
   assert.match(script, /game\/dice\.js and game\/rolls\.js/);
+});
+
+const calls = (dir) =>
+  existsSync(join(dir, 'game', 'calls.log'))
+    ? readFileSync(join(dir, 'game', 'calls.log'), 'utf8')
+        .trim()
+        .split('\n')
+    : [];
+const goodNpm = (dir) => `#!/bin/sh\necho "$@" > "${dir}/npm-called"\nexit 0\n`;
+
+test('with no terminal setup speaks English and leaves the language for /play to ask', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm(goodNpm(dir)) });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Setup complete/);
+  assert.deepEqual(calls(dir), ['init']);
+});
+
+test('an answered Ukrainian language makes every message Ukrainian and saves the language after init', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm(goodNpm(dir)), JSDND_SETUP_LANG: 'uk' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Налаштування завершено/);
+  assert.doesNotMatch(result.stdout, /Setup complete/);
+  assert.deepEqual(calls(dir), ['init', 'lang set uk']);
+});
+
+test('an answered English language is saved too, and a bad answer is ignored', () => {
+  const english = stubInstall();
+  runIn(english, { PATH: withNpm(goodNpm(english)), JSDND_SETUP_LANG: 'en' });
+  assert.deepEqual(calls(english), ['init', 'lang set en']);
+  const bad = stubInstall();
+  const result = runIn(bad, { PATH: withNpm(goodNpm(bad)), JSDND_SETUP_LANG: 'xx' });
+  assert.match(result.stdout, /Setup complete/);
+  assert.deepEqual(calls(bad), ['init']);
+});
+
+test('a missing node in Ukrainian prints Ukrainian text with the same commands', () => {
+  const emptyDir = mkdtempSync(join(tmpdir(), 'jsdnd-nopath-'));
+  const result = run({ PATH: `${emptyDir}:/bin:/usr/bin`, JSDND_SETUP_LANG: 'uk' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Node\.js не знайдено/);
+  for (const pattern of HELP) assert.match(result.stderr, pattern);
+  assert.doesNotMatch(result.stderr, /is missing/);
+});
+
+test('a failing npm in Ukrainian only warns, in Ukrainian, and setup still completes', () => {
+  const dir = stubInstall();
+  const result = runIn(dir, { PATH: withNpm('#!/bin/sh\nexit 1\n'), JSDND_SETUP_LANG: 'uk' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /перевірку стилю буде пропущено/);
+  assert.match(result.stdout, /Налаштування завершено/);
+});
+
+test('a Node without Ukrainian language data falls back to English and does not save Ukrainian', () => {
+  const dir = stubInstall();
+  const bin = mkdtempSync(join(tmpdir(), 'jsdnd-noicu-'));
+  writeFileSync(
+    join(bin, 'node'),
+    `#!/bin/sh\ncase "$*" in\n  *supportedLocalesOf*) exit 1 ;;\nesac\nexec "${process.execPath}" "$@"\n`,
+  );
+  chmodSync(join(bin, 'node'), 0o755);
+  writeFileSync(join(bin, 'npm'), goodNpm(dir));
+  chmodSync(join(bin, 'npm'), 0o755);
+  const result = runIn(dir, { PATH: `${bin}:/bin:/usr/bin`, JSDND_SETUP_LANG: 'uk' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /no Ukrainian language data/);
+  assert.match(result.stdout, /Setup complete/);
+  assert.deepEqual(calls(dir), ['init']);
+});
+
+// The messages are in one table of "language:key" lines, so a pair is easy to check.
+function messages() {
+  const text = readFileSync(join(root, 'setup.sh'), 'utf8');
+  const out = { en: {}, uk: {} };
+  const pattern = /^ {4}(en|uk):(\w+)\)([\s\S]*?);;$/gm;
+  for (const match of text.matchAll(pattern)) out[match[1]][match[2]] = match[3];
+  return out;
+}
+
+// What must be identical in both languages: commands, files, folders, and links.
+const codeTokens = (text) =>
+  [
+    ...text.matchAll(
+      /https?:\/\/[^\s"']+|(?:brew|nvm|npm) install(?: node)?|node:sqlite|game\/[\w.]+|data\/|\$\{?\w+\}?|\$\(node --version\)/g,
+    ),
+  ]
+    .map((m) => m[0].trim())
+    .sort();
+
+test('every setup message exists in English and Ukrainian, with the same commands, files, and links', () => {
+  const { en, uk } = messages();
+  assert.ok(Object.keys(en).length >= 8, 'the message table was not found');
+  assert.deepEqual(Object.keys(uk).sort(), Object.keys(en).sort());
+  for (const key of Object.keys(en)) {
+    assert.deepEqual(codeTokens(uk[key]), codeTokens(en[key]), key);
+    assert.match(uk[key], /\p{Script=Cyrillic}/u, `${key} has no Ukrainian`);
+  }
+});
+
+test('the Ukrainian setup messages have no long dash', () => {
+  const dashes = [String.fromCharCode(0x2013), String.fromCharCode(0x2014)];
+  const text = readFileSync(join(root, 'setup.sh'), 'utf8');
+  for (const dash of dashes) assert.ok(!text.includes(dash));
+});
+
+// The prompt is shown on a terminal. Node cannot give a child a real terminal without extra tools, so
+// JSDND_SETUP_PROMPT=1 makes the script ask and read the answer from stdin, as it would on a terminal.
+test('the language question is asked once and the answer is used', () => {
+  for (const [answer, shown, saved] of [
+    ['2\n', /Налаштування завершено/, 'lang set uk'],
+    ['uk\n', /Налаштування завершено/, 'lang set uk'],
+    ['1\n', /Setup complete/, 'lang set en'],
+    ['\n', /Setup complete/, 'lang set en'],
+    ['nonsense\n', /Setup complete/, 'lang set en'],
+  ]) {
+    const dir = stubInstall();
+    const result = spawnSync('/bin/bash', [join(dir, 'setup.sh')], {
+      cwd: dir,
+      env: { PATH: withNpm(goodNpm(dir)), JSDND_SETUP_PROMPT: '1' },
+      input: answer,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Language \/ Мова/);
+    assert.match(result.stdout, shown, JSON.stringify(answer));
+    assert.deepEqual(calls(dir), ['init', saved], JSON.stringify(answer));
+  }
+});
+
+test('the question is shown only once, and an answered language skips it', () => {
+  const dir = stubInstall();
+  const result = spawnSync('/bin/bash', [join(dir, 'setup.sh')], {
+    cwd: dir,
+    env: { PATH: withNpm(goodNpm(dir)), JSDND_SETUP_PROMPT: '1', JSDND_SETUP_LANG: 'uk' },
+    input: '1\n',
+    encoding: 'utf8',
+  });
+  assert.doesNotMatch(result.stdout, /Language \/ Мова/);
+  assert.deepEqual(calls(dir), ['init', 'lang set uk']);
 });
